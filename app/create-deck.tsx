@@ -1,73 +1,79 @@
-import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { makeId, type Deck } from "../src/models/deck";
+import { addDeck } from "../src/storage/decks";
 
 export default function CreateDeck() {
   const router = useRouter();
   const [title, setTitle] = useState("");
 
+  async function onCreate() {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      Alert.alert("Deck title required", "Please enter a name for your deck.");
+      return;
+    }
+
+    const deck: Deck = {
+      id: makeId(),
+      title: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
+    await addDeck(deck);
+    router.back();
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.h1}>Create Deck</Text>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 12, gap: 16 }}>
+        <Text style={{ fontSize: 24, fontWeight: "700" }}>Create deck</Text>
 
-      <Text style={styles.label}>Deck title</Text>
-      <TextInput
-        value={title}
-        onChangeText={setTitle}
-        placeholder="e.g., AWS SysOps — Load Balancers"
-        placeholderTextColor="#6B7280"
-        style={styles.input}
-      />
-
-      <View style={styles.row}>
-        <Pressable style={[styles.button, styles.secondary]} onPress={() => router.back()}>
-          <Text style={styles.buttonText}>Cancel</Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.button, styles.primary, !title.trim() && styles.disabled]}
-          disabled={!title.trim()}
-          onPress={() => {
-            // Next step: save to storage + return to DecksHome
-            router.back();
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Deck title"
+          autoFocus
+          style={{
+            borderWidth: 1,
+            borderColor: "rgba(0, 0, 0, 0.12)",
+            padding: 14,
+            borderRadius: 12,
+            fontSize: 16,
           }}
-        >
-          <Text style={styles.buttonText}>Create</Text>
-        </Pressable>
+        />
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "rgba(0, 0, 0, 0.12)",
+            }}
+          >
+            <Text style={{ fontWeight: "600" }}>Cancel</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onCreate}
+            style={{
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "rgba(0, 0, 0, 0.12)",
+            }}
+          >
+            <Text style={{ fontWeight: "600" }}>Create</Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0B0B0F",
-    padding: 24,
-    paddingTop: 64,
-  },
-  h1: { color: "#FFF", fontSize: 28, fontWeight: "700", marginBottom: 24 },
-  label: { color: "#A1A1AA", marginBottom: 8, fontSize: 14 },
-  input: {
-    backgroundColor: "#111827",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: "#FFF",
-    borderWidth: 1,
-    borderColor: "#1F2937",
-    marginBottom: 24,
-    fontSize: 16,
-  },
-  row: { flexDirection: "row", gap: 12 },
-  button: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  primary: { backgroundColor: "#2563EB" },
-  secondary: { backgroundColor: "#1F2937" },
-  disabled: { opacity: 0.5 },
-  buttonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
-});
