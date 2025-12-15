@@ -1,25 +1,28 @@
+
+import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export default function DecksHome() {
+   const router = useRouter();
   return (
     <View style={styles.container}>
     <View style={styles.emptyState}>
       <Text style={styles.title}>Briefly</Text>
       <Text style={styles.subtitle}>You do not have any decks yet.</Text>
-      
-      <Pressable style={styles.button} onPress={() => {}}>
+
+      <Pressable style={styles.button} onPress={() => router.push("/create-deck")}>
         <Text style={styles.buttonText}>+ Create your first deck</Text>
       </Pressable>
+
       </View>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: "#0B0B0F",
+    backgroundColor: "#2f9d9fff",
     alignItems: "center",
     justifyContent: "center",
     padding: 24
@@ -38,7 +41,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "#A1A1AA",
+    color: "#ffffffff",
     marginBottom: 32,
     textAlign: "center"},
   button: {
