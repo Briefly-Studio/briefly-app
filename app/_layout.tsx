@@ -1,10 +1,16 @@
 import { Stack } from "expo-router";
-import { View } from "react-native";
+
+const APP_BG = "#2FA4A3";
 
 export default function Layout() {
   return (
-    <View style={{ flex: 1, backgroundColor: "#2FA4A3" }}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </View>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: {
+          backgroundColor: APP_BG,
+        },
+      }}
+    />
   );
 }

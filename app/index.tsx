@@ -66,12 +66,15 @@ export default function DecksHome() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Pressable
+            onPress={() => router.push(`/deck/${item.id}`)}
+            style={styles.card}
+          >
             <Text style={styles.cardTitle}>{item.title}</Text>
             <Text style={styles.cardMeta}>
               Created {new Date(item.createdAt).toLocaleDateString()}
             </Text>
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>
@@ -137,4 +140,3 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 20, fontWeight: "800", color: "white" },
   cardMeta: { marginTop: 6, opacity: 0.85, color: "white" },
 });
-

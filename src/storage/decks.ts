@@ -25,3 +25,7 @@ export async function addDeck(deck: Deck): Promise<Deck[]> {
   await setDecks(updated);
   return updated;
 }
+export async function getDeckById(id: string): Promise<Deck | null> {
+  const decks = await getDecks();
+  return decks.find((d) => d.id === id) ?? null;
+}
