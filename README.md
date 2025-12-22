@@ -1,50 +1,73 @@
-# Welcome to your Expo app 👋
+## Current Version
+Briefly v1.5 — Manual Study MVP (Offline-first)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Get started
+# Briefly — Flashcards + Review + Quiz (Expo Router + AsyncStorage)
 
-1. Install dependencies
+Briefly is a mobile flashcard app built with **Expo (React Native)** using **file-based routing (expo-router)** and **local persistence (AsyncStorage)**. Users can create decks, add/edit/delete cards, review cards in flip mode, and take a multiple-choice quiz with a results screen.
 
-   ```bash
-   npm install
-   ```
+This project focuses on clean, scalable architecture: separation of concerns between UI routes and storage utilities, and safe deletion behavior to prevent orphaned data.
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## Features
 
-In the output, you'll find options to open the app in a
+### Decks
+- Create decks
+- View all decks
+- Delete decks (with cascade deletion for cards)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Cards
+- Add cards to a deck
+- View cards inside a deck
+- Edit a card
+- Delete a card (long-press behavior supported in the deck list)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Review Mode
+- Flip card (front/back)
+- Next card navigation
+- Progress indicator
 
-## Get a fresh project
+### Quiz Mode
+- Multiple-choice quiz generated from deck cards
+- Progress indicator
+- Correct/incorrect feedback
+- Quiz results screen
+- Retry quiz
+- Return back to deck
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
-```
+## Tech Stack
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- **Expo + React Native**
+- **expo-router** (file-based routing)
+- **AsyncStorage** for local persistence
+- TypeScript
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## Project Structure
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```txt
+app/
+  index.tsx                       # Decks Home (list/create/delete decks)
+  create-deck.tsx                 # Create deck screen
+  deck/
+    [id]/
+      _layout.tsx                 # Deck stack layout
+      index.tsx                   # Deck details + card list
+      add-card.tsx                # Add card
+      review.tsx                  # Review mode (flip cards)
+      quiz.tsx                    # Quiz mode (multiple choice)
+      quiz-results.tsx            # Results screen
+      edit-card/
+        [cardId].tsx              # Edit/delete card
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+src/
+  models/
+    deck.ts                       # Deck type definition
+    card.ts                       # Card type definition
+  storage/
+    decks.ts                      # Deck storage functions
+    cards.ts                      # Card storage functions (per-deck keys)

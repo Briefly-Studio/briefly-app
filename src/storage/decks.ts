@@ -1,12 +1,11 @@
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Deck } from "../models/deck";
-
-const STORAGE_KEY = "briefly.decks.v1";
+import { DECKS_KEY, cardsKeyForDeck } from "./keys";
+import { deleteSessionsForDeck } from "./sessions";
 
 export async function getDecks(): Promise<Deck[]> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(DECKS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Deck[];
     return Array.isArray(parsed) ? parsed : [];
@@ -16,7 +15,7 @@ export async function getDecks(): Promise<Deck[]> {
 }
 
 export async function setDecks(decks: Deck[]) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+  await AsyncStorage.setItem(DECKS_KEY, JSON.stringify(decks));
 }
 
 export async function addDeck(deck: Deck): Promise<Deck[]> {
@@ -25,7 +24,30 @@ export async function addDeck(deck: Deck): Promise<Deck[]> {
   await setDecks(updated);
   return updated;
 }
+
 export async function getDeckById(id: string): Promise<Deck | null> {
   const decks = await getDecks();
   return decks.find((d) => d.id === id) ?? null;
+}
+
+export async function deleteDeckById(id: string): Promise<Deck[]> {
+  const decks = await getDecks();
+  const updated = decks.filter((d) => d.id !== id);
+  await setDecks(updated);
+
+  // cascade delete (same key function used everywhere)
+  try {
+    await AsyncStorage.removeItem(cardsKeyForDeck(id));
+  } catch {
+    // ignore
+  }
+
+  // 3) cascade delete sessions for this deck
+  try {
+    await deleteSessionsForDeck(id);
+  } catch {
+    // ignore (best-effort)
+  }
+
+  return updated;
 }

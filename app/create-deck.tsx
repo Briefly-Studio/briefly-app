@@ -26,7 +26,7 @@ export default function CreateDeck() {
     await addDeck(deck);
     router.back();
   }
-
+  
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 12, gap: 16 }}>

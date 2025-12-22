@@ -1,11 +1,21 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { Deck } from "../src/models/deck";
-import { getDecks } from "../src/storage/decks";
+import { deleteCardsForDeck } from "../src/storage/cards";
+import { deleteDeckById, getDecks } from "../src/storage/decks";
+
+const APP_BG = "#2FA4A3"; // teal background like original
 
 export default function DecksHome() {
   const router = useRouter();
@@ -28,10 +38,29 @@ export default function DecksHome() {
     }, [])
   );
 
+  const confirmDelete = (deck: Deck) => {
+    Alert.alert("Delete deck?", `“${deck.title}” will be removed from this device.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          // Delete deck record
+          const updated = await deleteDeckById(deck.id);
+
+          // Delete cards stored for that deck (cascade delete)
+          await deleteCardsForDeck(deck.id);
+
+          setDecks(updated);
+          setLoaded(true);
+        },
+      },
+    ]);
+  };
+
   const isEmpty = loaded && decks.length === 0;
 
   if (isEmpty) {
-    //This matches the “before” style
     return (
       <SafeAreaView style={styles.emptyScreen}>
         <Text style={styles.emptyTitle}>Briefly</Text>
@@ -47,7 +76,6 @@ export default function DecksHome() {
     );
   }
 
-  // Deck list state (rectangles/cards from prior version)
   return (
     <SafeAreaView style={styles.listScreen}>
       <View style={styles.listHeader}>
@@ -68,6 +96,8 @@ export default function DecksHome() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push(`/deck/${item.id}`)}
+            onLongPress={() => confirmDelete(item)}
+            delayLongPress={350}
             style={styles.card}
           >
             <Text style={styles.cardTitle}>{item.title}</Text>
@@ -80,20 +110,23 @@ export default function DecksHome() {
     </SafeAreaView>
   );
 }
-const APP_BG = "#2FA4A3"; // teal background like original
 
 const styles = StyleSheet.create({
-  // --- Empty state (BEFORE look) ---
   emptyScreen: {
     flex: 1,
-    backgroundColor: APP_BG,          
+    backgroundColor: APP_BG,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
     gap: 12,
   },
   emptyTitle: { fontSize: 34, fontWeight: "800", color: "black" },
-  emptySubtitle: { fontSize: 16, opacity: 0.85, textAlign: "center", color: "white" },
+  emptySubtitle: {
+    fontSize: 16,
+    opacity: 0.85,
+    textAlign: "center",
+    color: "white",
+  },
   emptyPrimaryBtn: {
     marginTop: 12,
     paddingVertical: 14,
@@ -103,10 +136,9 @@ const styles = StyleSheet.create({
   },
   emptyPrimaryBtnText: { color: "white", fontWeight: "700", fontSize: 16 },
 
-  // --- List state ---
   listScreen: {
     flex: 1,
-    backgroundColor: APP_BG,         
+    backgroundColor: APP_BG,
     paddingHorizontal: 20,
     paddingTop: 10,
   },
@@ -123,8 +155,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)", // better on teal
-    backgroundColor: "rgba(255,255,255,0.15)", //  subtle pill feel
+    borderColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
   newDeckBtnText: { fontSize: 16, fontWeight: "700", color: "white" },
 
@@ -134,8 +166,8 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",   // better on teal
-    backgroundColor: "rgba(255,255,255,0.16)", // soft glass card
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
   cardTitle: { fontSize: 20, fontWeight: "800", color: "white" },
   cardMeta: { marginTop: 6, opacity: 0.85, color: "white" },
