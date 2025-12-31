@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { Card } from "../../../src/models/card";
+import { smartShuffle } from "../../../src/domain/smartShuffle";
 import { getCards } from "../../../src/storage/cards";
 
 const APP_BG = "#2FA4A3";
@@ -47,6 +48,10 @@ export default function QuizScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [wasCorrect, setWasCorrect] = useState<boolean | null>(null);
 
+  const isSingleCard = cards.length <= 1;
+  const isLastCard = cards.length > 0 && index === cards.length - 1;
+  const showFinishEarly = loaded && cards.length > 0 && !isSingleCard && !isLastCard;
+
   useEffect(() => {
     let alive = true;
 
@@ -55,7 +60,7 @@ export default function QuizScreen() {
       const data = await getCards(deckId);
 
       if (alive) {
-        setCards(data);
+        setCards(smartShuffle(data));
         setLoaded(true);
         setIndex(0);
 
@@ -138,6 +143,40 @@ export default function QuizScreen() {
     }
 
     setIndex((i) => i + 1);
+  };
+
+  const confirmFinishEarly = () => {
+    if (cards.length === 0) return;
+
+    const attempted = Math.min(index + 1, cards.length);
+    const correct = scoreRef.current;
+    const percent = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+
+    Alert.alert(
+      "Finish quiz early?",
+      `This will log a quiz session for ${attempted} card${
+        attempted === 1 ? "" : "s"
+      }.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Finish",
+          style: "default",
+          onPress: () =>
+            router.replace({
+              pathname: "/deck/[id]/quiz-results",
+              params: {
+                id: deckId,
+                total: String(attempted),
+                correct: String(correct),
+                percent: String(percent),
+                startedAt: String(startedAt),
+                finishedAt: String(Date.now()),
+              },
+            }),
+        },
+      ]
+    );
   };
 
   if (!loaded) {
@@ -240,6 +279,12 @@ export default function QuizScreen() {
         <Text style={styles.feedback}>{wasCorrect ? "Correct" : "Not quite"}</Text>
       )}
 
+      {showFinishEarly && (
+        <Pressable onPress={confirmFinishEarly} style={styles.finishEarlyBtn}>
+          <Text style={styles.finishEarlyText}>Finish early</Text>
+        </Pressable>
+      )}
+
       <Pressable
         onPress={onNext}
         disabled={!selectedId}
@@ -319,4 +364,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   nextBtnText: { color: "white", fontWeight: "900", fontSize: 16 },
+
+  finishEarlyBtn: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+  },
+  finishEarlyText: { color: "white", fontWeight: "900", fontSize: 16, opacity: 0.95 },
 });

@@ -1,6 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Card } from "../models/card";
+import type { Card, Difficulty } from "../models/card";
 import { cardsKeyForDeck } from "./keys";
+
+const DEFAULT_DIFFICULTY: Difficulty = "medium";
+
+const normalizeCard = (card: Card): Card => ({
+  ...card,
+  difficulty: card.difficulty ?? DEFAULT_DIFFICULTY,
+});
 
 export async function getCards(deckId: string): Promise<Card[]> {
   if (!deckId) return [];
@@ -8,7 +15,9 @@ export async function getCards(deckId: string): Promise<Card[]> {
     const raw = await AsyncStorage.getItem(cardsKeyForDeck(deckId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Card[]) : [];
+    return Array.isArray(parsed)
+      ? (parsed as Card[]).map((card) => normalizeCard(card))
+      : [];
   } catch {
     return [];
   }
@@ -16,12 +25,13 @@ export async function getCards(deckId: string): Promise<Card[]> {
 
 export async function setCards(deckId: string, cards: Card[]): Promise<void> {
   if (!deckId) return;
-  await AsyncStorage.setItem(cardsKeyForDeck(deckId), JSON.stringify(cards));
+  const normalized = cards.map((card) => normalizeCard(card));
+  await AsyncStorage.setItem(cardsKeyForDeck(deckId), JSON.stringify(normalized));
 }
 
 export async function addCard(deckId: string, card: Card): Promise<Card[]> {
   const existing = await getCards(deckId);
-  const updated = [card, ...existing];
+  const updated = [normalizeCard(card), ...existing];
   await setCards(deckId, updated);
   return updated;
 }

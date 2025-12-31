@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { Card } from "../../../src/models/card";
+import type { Card, Difficulty } from "../../../src/models/card";
 import { addCard } from "../../../src/storage/cards";
 
 const APP_BG = "#2FA4A3";
@@ -11,7 +11,6 @@ const APP_BG = "#2FA4A3";
 export default function AddCardScreen() {
   const router = useRouter();
 
-  // Robust params handling: id can be string OR string[]
   const params = useLocalSearchParams();
   const idParam = params.id;
 
@@ -24,18 +23,22 @@ export default function AddCardScreen() {
 
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
 
   const canSave = front.trim().length > 0 && back.trim().length > 0;
 
   const onSave = async () => {
     if (!deckId || !canSave) return;
 
+    const now = Date.now();
+
     const card: Card = {
-      id: `${Date.now()}`,
+      id: String(now),
       deckId,
       front: front.trim(),
       back: back.trim(),
-      createdAt: Date.now(),
+      createdAt: now,
+      difficulty,
     };
 
     await addCard(deckId, card);
@@ -79,6 +82,24 @@ export default function AddCardScreen() {
         style={styles.input}
         multiline
       />
+
+      <Text style={styles.label}>Difficulty</Text>
+      <View style={styles.segmentRow}>
+        {(["easy", "medium", "hard"] as Difficulty[]).map((level) => {
+          const isActive = difficulty === level;
+          return (
+            <Pressable
+              key={level}
+              onPress={() => setDifficulty(level)}
+              style={[styles.segment, isActive && styles.segmentActive]}
+            >
+              <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
+                {level[0].toUpperCase() + level.slice(1)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </SafeAreaView>
   );
 }
@@ -115,7 +136,7 @@ const styles = StyleSheet.create({
   },
   primaryText: { color: "white", fontWeight: "800" },
 
-  title: { fontSize: 30, fontWeight: "900", color: "black", marginTop: 4 },
+  title: { fontSize: 30, fontWeight: "900", color: "white", marginTop: 4 },
   label: { color: "white", fontWeight: "800", opacity: 0.9, marginTop: 6 },
 
   input: {
@@ -127,4 +148,23 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.25)",
     backgroundColor: "rgba(255,255,255,0.16)",
   },
+
+  segmentRow: {
+    flexDirection: "row",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    overflow: "hidden",
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  segmentActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  segmentText: { color: "white", opacity: 0.85, fontWeight: "800" },
+  segmentTextActive: { opacity: 1 },
 });

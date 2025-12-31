@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -48,6 +48,15 @@ export default function QuizResults() {
   );
 
   const sessionLogged = useRef(false);
+  const navLock = useRef(false);
+  const [navBusy, setNavBusy] = useState(false);
+
+  const navigateOnce = (action: () => void) => {
+    if (navLock.current || navBusy) return;
+    navLock.current = true;
+    setNavBusy(true);
+    action();
+  };
 
   useEffect(() => {
     if (sessionLogged.current) return;
@@ -76,7 +85,11 @@ export default function QuizResults() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Pressable onPress={() => router.back()} style={styles.pill}>
+      <Pressable
+        onPress={() => navigateOnce(() => router.replace(`/deck/${deckId}`))}
+        disabled={navBusy}
+        style={[styles.pill, navBusy && { opacity: 0.5 }]}
+      >
         <Text style={styles.pillText}>← Back</Text>
       </Pressable>
 
@@ -105,15 +118,17 @@ export default function QuizResults() {
         <Text style={styles.subtle}>Time: {durationText}</Text>
 
         <Pressable
-          onPress={() => router.replace(`/deck/${deckId}/quiz`)}
-          style={styles.primary}
+          onPress={() => navigateOnce(() => router.replace(`/deck/${deckId}/quiz`))}
+          disabled={navBusy}
+          style={[styles.primary, navBusy && { opacity: 0.5 }]}
         >
           <Text style={styles.primaryText}>Retry</Text>
         </Pressable>
 
         <Pressable
-          onPress={() => router.replace(`/deck/${deckId}`)}
-          style={styles.secondary}
+          onPress={() => navigateOnce(() => router.replace(`/deck/${deckId}`))}
+          disabled={navBusy}
+          style={[styles.secondary, navBusy && { opacity: 0.5 }]}
         >
           <Text style={styles.secondaryText}>Back to deck</Text>
         </Pressable>

@@ -1,7 +1,9 @@
-# Briefly v1.5 Archive
+## Architecture
 
-This folder is a permanent snapshot of Briefly version 1.5.
-It is read-only and exists for reference and rollback purposes.
+- `app/` – screens and navigation (Expo Router)
+- `src/models/` – TypeScript data models
+- `src/storage/` – local persistence (AsyncStorage)
+- `src/domain/` – pure business logic and calculations
+- `src/utils/` – generic helpers
 
-Date frozen: 22/12/2025
-Git tag: v1.5.0
+The domain layer isolates logic so storage and UI can evolve independently.

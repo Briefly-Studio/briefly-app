@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { Card } from "../../../../src/models/card";
+import type { Card, Difficulty } from "../../../../src/models/card";
 import { deleteCard, getCards, updateCard } from "../../../../src/storage/cards";
 
 const APP_BG = "#2FA4A3";
@@ -34,6 +34,7 @@ export default function EditCardScreen() {
 
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
 
   useEffect(() => {
     let alive = true;
@@ -49,6 +50,7 @@ export default function EditCardScreen() {
       setCard(found);
       setFront(found?.front ?? "");
       setBack(found?.back ?? "");
+      setDifficulty(found?.difficulty ?? "medium");
       setLoaded(true);
     })();
 
@@ -69,6 +71,7 @@ export default function EditCardScreen() {
       ...card,
       front: front.trim(),
       back: back.trim(),
+      difficulty,
     };
 
     await updateCard(deckId, updated);
@@ -138,6 +141,24 @@ export default function EditCardScreen() {
         multiline
       />
 
+      <Text style={styles.label}>Difficulty</Text>
+      <View style={styles.segmentRow}>
+        {(["easy", "medium", "hard"] as Difficulty[]).map((level) => {
+          const isActive = difficulty === level;
+          return (
+            <Pressable
+              key={level}
+              onPress={() => setDifficulty(level)}
+              style={[styles.segment, isActive && styles.segmentActive]}
+            >
+              <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
+                {level[0].toUpperCase() + level.slice(1)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <Pressable onPress={onDelete} style={styles.danger}>
         <Text style={styles.dangerText}>Delete Card</Text>
       </Pressable>
@@ -192,6 +213,25 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.25)",
     backgroundColor: "rgba(255,255,255,0.16)",
   },
+
+  segmentRow: {
+    flexDirection: "row",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    overflow: "hidden",
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  segmentActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  segmentText: { color: "white", opacity: 0.85, fontWeight: "800" },
+  segmentTextActive: { opacity: 1 },
 
   danger: {
     marginTop: 8,

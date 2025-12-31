@@ -85,11 +85,7 @@ export default function DeckHistoryScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.topRow}>
-        {/* ✅ FIX: replace, don’t back (prevents stack loop) */}
-        <Pressable
-          onPress={() => router.replace(`/deck/${deckId}`)}
-          style={styles.pill}
-        >
+        <Pressable onPress={() => router.back()} style={styles.pill}>
           <Text style={styles.pillText}>← Back</Text>
         </Pressable>
 

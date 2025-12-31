@@ -72,6 +72,13 @@ export default function DecksHome() {
         >
           <Text style={styles.emptyPrimaryBtnText}>+ Create your first deck</Text>
         </Pressable>
+
+        <Pressable
+          onPress={() => router.push("/import-deck")}
+          style={styles.newDeckBtn}
+        >
+          <Text style={styles.newDeckBtnText}>Import deck</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -81,12 +88,20 @@ export default function DecksHome() {
       <View style={styles.listHeader}>
         <Text style={styles.listTitle}>Briefly</Text>
 
-        <Pressable
-          onPress={() => router.push("/create-deck")}
-          style={styles.newDeckBtn}
-        >
-          <Text style={styles.newDeckBtnText}>+ Deck</Text>
-        </Pressable>
+        <View style={styles.headerButtons}>
+          <Pressable
+            onPress={() => router.push("/import-deck")}
+            style={styles.newDeckBtn}
+          >
+            <Text style={styles.newDeckBtnText}>Import</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/create-deck")}
+            style={styles.newDeckBtn}
+          >
+            <Text style={styles.newDeckBtnText}>+ Deck</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
@@ -149,6 +164,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   listTitle: { fontSize: 30, fontWeight: "800", color: "black" },
+  headerButtons: { flexDirection: "row", gap: 8 },
 
   newDeckBtn: {
     paddingVertical: 10,

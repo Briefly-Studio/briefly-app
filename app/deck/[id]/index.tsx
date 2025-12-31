@@ -10,68 +10,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { computeDeckStats } from "../../../src/domain/deckStats";
+import { exportDeckToJson } from "../../../src/domain/deckPortability";
+import { formatDuration, formatTimestamp } from "../../../src/domain/sessionFormat";
 import type { Card } from "../../../src/models/card";
 import type { Deck } from "../../../src/models/deck";
 import type { StudySession } from "../../../src/models/session";
 import { deleteCard, getCards } from "../../../src/storage/cards";
 import { getDeckById } from "../../../src/storage/decks";
 import {
-  deleteSessionsForDeck,
-  getSessionsForDeck,
+  getSessionsForDeck
 } from "../../../src/storage/sessions";
 
 const APP_BG = "#2FA4A3";
-
-const formatTimestamp = (value: number) =>
-  new Date(value).toLocaleString(undefined, {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-
-const formatDuration = (startedAt: number, finishedAt: number) => {
-  const diff = Math.max(0, finishedAt - startedAt);
-  const totalSeconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-};
-
-// ✅ helpers for stats
-const msToMinutes = (ms: number) => Math.round(ms / 60000);
-
-const startOfDay = (t: number) => {
-  const d = new Date(t);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-};
-
-const daysAgo = (n: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-};
-
-// Optional streak helper (not shown unless you want to render it)
-const computeStreakDays = (sessions: StudySession[]) => {
-  if (sessions.length === 0) return 0;
-
-  // unique study days (based on finishedAt)
-  const days = new Set<number>();
-  for (const s of sessions) {
-    days.add(startOfDay(s.finishedAt));
-  }
-
-  let streak = 0;
-  let cursor = startOfDay(Date.now());
-
-  while (days.has(cursor)) {
-    streak += 1;
-    cursor = cursor - 24 * 60 * 60 * 1000;
-  }
-
-  return streak;
-};
 
 export default function DeckDetails() {
   const router = useRouter();
@@ -89,10 +40,15 @@ export default function DeckDetails() {
   const [cards, setCards] = useState<Card[]>([]);
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [filter, setFilter] = useState<"all" | "easy" | "medium" | "hard">("all");
+  const [showStats, setShowStats] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
-  // ✅ IMPORTANT: always go back to main/home from this screen to prevent loop
   const goBackHome = () => {
-    // If your home route is /(tabs), change "/" to "/(tabs)"
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
     router.replace("/");
   };
 
@@ -139,23 +95,16 @@ export default function DeckDetails() {
     ]);
   };
 
-  // (unused for now, but safe to keep if you’ll wire it later)
-  const confirmClearHistory = () => {
-    Alert.alert(
-      "Clear study history?",
-      "This will remove all sessions for this deck.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: async () => {
-            await deleteSessionsForDeck(id);
-            setSessions([]);
-          },
-        },
-      ]
-    );
+  const onExportDeck = async () => {
+    try {
+      const json = await exportDeckToJson(id);
+      Alert.alert("Export deck", json);
+    } catch (error) {
+      Alert.alert(
+        "Export failed",
+        error instanceof Error ? error.message : "Please try again."
+      );
+    }
   };
 
   const isEmptyCards = loaded && deck && cards.length === 0;
@@ -167,61 +116,13 @@ export default function DeckDetails() {
       .slice(0, 5);
   }, [sessions]);
 
-  // ✅ Stats summary
-  const stats = useMemo(() => {
-    if (sessions.length === 0) {
-      return {
-        totalSessions: 0,
-        todaySessions: 0,
-        todayMinutes: 0,
-        weekSessions: 0,
-        bestQuizPercent: null as number | null,
-        avgQuizPercent7d: null as number | null,
-        streakDays: 0,
-      };
-    }
+  const filteredCards = useMemo(() => {
+    if (filter === "all") return cards;
+    return cards.filter((card) => (card.difficulty ?? "medium") === filter);
+  }, [cards, filter]);
 
-    const now = Date.now();
-    const todayStart = startOfDay(now);
-    const weekStart = daysAgo(6); // last 7 days inclusive
-
-    const today = sessions.filter((s) => s.finishedAt >= todayStart);
-    const week = sessions.filter((s) => s.finishedAt >= weekStart);
-
-    const todayMs = today.reduce(
-      (sum, s) => sum + Math.max(0, s.finishedAt - s.startedAt),
-      0
-    );
-
-    const quiz = sessions.filter(
-      (s) => s.mode === "quiz" && typeof s.percent === "number"
-    );
-    const bestQuizPercent =
-      quiz.length === 0 ? null : Math.max(...quiz.map((s) => s.percent as number));
-
-    const quiz7d = week.filter(
-      (s) => s.mode === "quiz" && typeof s.percent === "number"
-    );
-    const avgQuizPercent7d =
-      quiz7d.length === 0
-        ? null
-        : Math.round(
-            quiz7d.reduce((sum, s) => sum + (s.percent as number), 0) /
-              quiz7d.length
-          );
-
-    const streakDays = computeStreakDays(sessions);
-
-    return {
-      totalSessions: sessions.length,
-      todaySessions: today.length,
-      todayMinutes: msToMinutes(todayMs),
-      weekSessions: week.length,
-      bestQuizPercent,
-      avgQuizPercent7d,
-      streakDays,
-    };
-  }, [sessions]);
+  // Stats summary
+  const stats = useMemo(() => computeDeckStats(sessions), [sessions]);
 
   if (!loaded) {
     return (
@@ -263,7 +164,7 @@ export default function DeckDetails() {
     );
   }
 
-  // ✅ Show “Study history button row” (compact)
+  // show “Study history button row” (compact)
   const lastSession = recentSessions[0];
 
   return (
@@ -287,69 +188,108 @@ export default function DeckDetails() {
         <Text style={styles.secondaryBtnText}>🧠 Start quiz</Text>
       </Pressable>
 
-      {/* ✅ Stats card */}
-      <View style={[styles.card, { marginTop: 14, gap: 8 }]}>
-        <Text style={{ color: "white", fontWeight: "900", fontSize: 16 }}>
-          Stats
-        </Text>
-
-        <Text style={{ color: "white", opacity: 0.9 }}>
-          Today: {stats.todaySessions} sessions • {stats.todayMinutes} min
-        </Text>
-
-        <Text style={{ color: "white", opacity: 0.9 }}>
-          Last 7 days: {stats.weekSessions} sessions
-          {stats.avgQuizPercent7d !== null
-            ? ` • avg quiz ${stats.avgQuizPercent7d}%`
-            : ""}
-        </Text>
-
-        <Text style={{ color: "white", opacity: 0.9 }}>
-          Best quiz:{" "}
-          {stats.bestQuizPercent !== null ? `${stats.bestQuizPercent}%` : "—"}
-        </Text>
-
-        <Text style={{ color: "white", opacity: 0.9 }}>
-          Streak: {stats.streakDays} day{stats.streakDays === 1 ? "" : "s"}
-        </Text>
-
-        <Text style={{ color: "white", opacity: 0.75, fontSize: 12 }}>
-          Total sessions: {stats.totalSessions}
-        </Text>
-      </View>
-
-      {/* ✅ Study history button */}
-      <Pressable onPress={goHistory} style={styles.historyButton}>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Text style={styles.historyButtonTitle}>
-            Study history ({sessions.length})
-          </Text>
-
-          {lastSession ? (
-            <Text style={styles.historyButtonSubtitle}>
-              {formatTimestamp(lastSession.finishedAt)} •{" "}
-              {lastSession.mode === "quiz"
-                ? `Quiz • ${
-                    typeof lastSession.percent === "number"
-                      ? `${lastSession.percent}% • `
-                      : ""
-                  }`
-                : "Review • "}
-              {lastSession.total} cards •{" "}
-              {formatDuration(lastSession.startedAt, lastSession.finishedAt)}
-            </Text>
-          ) : (
-            <Text style={styles.historyButtonSubtitle}>
-              No study history yet. Start a review or quiz.
-            </Text>
-          )}
-        </View>
-
-        <Text style={styles.chevron}>›</Text>
+      <Pressable
+        onPress={() => setShowStats((prev) => !prev)}
+        style={styles.sectionToggle}
+      >
+        <Text style={styles.sectionTitle}>Stats</Text>
+        <Text style={styles.sectionChevron}>{showStats ? "˄" : "˅"}</Text>
       </Pressable>
 
+      {showStats && (
+        <View style={[styles.card, { marginTop: 10, gap: 8 }]}>
+          <Text style={{ color: "white", opacity: 0.9 }}>
+            Today: {stats.todaySessions} sessions • {stats.todayMinutes} min
+          </Text>
+
+          <Text style={{ color: "white", opacity: 0.9 }}>
+            Last 7 days: {stats.weekSessions} sessions
+            {stats.avgQuizPercent7d !== null
+              ? ` • avg quiz ${stats.avgQuizPercent7d}%`
+              : ""}
+          </Text>
+
+          <Text style={{ color: "white", opacity: 0.9 }}>
+            Best quiz:{" "}
+            {stats.bestQuizPercent !== null ? `${stats.bestQuizPercent}%` : "—"}
+          </Text>
+
+          <Text style={{ color: "white", opacity: 0.9 }}>
+            Streak: {stats.streakDays} day{stats.streakDays === 1 ? "" : "s"}
+          </Text>
+
+          <Text style={{ color: "white", opacity: 0.75, fontSize: 12 }}>
+            Total sessions: {stats.totalSessions}
+          </Text>
+        </View>
+      )}
+
+      <Pressable
+        onPress={() => setShowDetails((prev) => !prev)}
+        style={styles.sectionToggle}
+      >
+        <Text style={styles.sectionTitle}>Details</Text>
+        <Text style={styles.sectionChevron}>{showDetails ? "˄" : "˅"}</Text>
+      </Pressable>
+
+      {showDetails && (
+        <View style={styles.sectionBody}>
+          <Pressable onPress={onExportDeck} style={styles.secondaryBtn}>
+            <Text style={styles.secondaryBtnText}>Export deck</Text>
+          </Pressable>
+
+          {/* Study history button */}
+          <Pressable onPress={goHistory} style={styles.historyButton}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={styles.historyButtonTitle}>
+                Study history ({sessions.length})
+              </Text>
+
+              {lastSession ? (
+                <Text style={styles.historyButtonSubtitle}>
+                  {formatTimestamp(lastSession.finishedAt)} •{" "}
+                  {lastSession.mode === "quiz"
+                    ? `Quiz • ${
+                        typeof lastSession.percent === "number"
+                          ? `${lastSession.percent}% • `
+                          : ""
+                      }`
+                    : "Review • "}
+                  {lastSession.total} cards •{" "}
+                  {formatDuration(lastSession.startedAt, lastSession.finishedAt)}
+                </Text>
+              ) : (
+                <Text style={styles.historyButtonSubtitle}>
+                  No study history yet. Start a review or quiz.
+                </Text>
+              )}
+            </View>
+
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        </View>
+      )}
+
+      <View style={styles.filterRow}>
+        {(["all", "easy", "medium", "hard"] as const).map((value) => {
+          const isActive = filter === value;
+          const label = value[0].toUpperCase() + value.slice(1);
+          return (
+            <Pressable
+              key={value}
+              onPress={() => setFilter(value)}
+              style={[styles.filterChip, isActive && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <FlatList
-        data={cards}
+        data={filteredCards}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingTop: 14, paddingBottom: 110, gap: 12 }}
         renderItem={({ item }) => (
@@ -360,6 +300,10 @@ export default function DeckDetails() {
             style={styles.card}
           >
             <Text style={styles.cardFront}>{item.front}</Text>
+            <Text style={styles.cardMeta}>
+              {(item.difficulty ?? "medium")[0].toUpperCase() +
+                (item.difficulty ?? "medium").slice(1)}
+            </Text>
             <Text style={styles.cardBack}>{item.back}</Text>
             <Text style={styles.hint}>Tap to edit • Long-press to delete</Text>
           </Pressable>
@@ -448,6 +392,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.16)",
   },
   cardFront: { color: "white", fontWeight: "900", fontSize: 18 },
+  cardMeta: { marginTop: 4, color: "white", opacity: 0.7, fontSize: 12 },
   cardBack: { marginTop: 8, color: "white", opacity: 0.9 },
   hint: { marginTop: 10, color: "white", opacity: 0.65, fontSize: 12 },
 
@@ -479,6 +424,42 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     opacity: 0.85,
   },
+
+  sectionToggle: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.14)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: { color: "white", fontWeight: "900", fontSize: 16 },
+  sectionChevron: { color: "white", fontSize: 16, fontWeight: "900", opacity: 0.85 },
+  sectionBody: { marginTop: 10, gap: 10 },
+
+  filterRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  filterChipActive: {
+    backgroundColor: "rgba(255,255,255,0.28)",
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  filterText: { color: "white", opacity: 0.85, fontWeight: "800", fontSize: 12 },
+  filterTextActive: { opacity: 1 },
 
   bottomBar: {
     position: "absolute",
