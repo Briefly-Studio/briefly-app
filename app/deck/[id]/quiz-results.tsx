@@ -58,6 +58,14 @@ export default function QuizResults() {
     action();
   };
 
+  const goBackToDeck = () => {
+    if (router.canGoBack && router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace(`/deck/${deckId}`);
+  };
+
   useEffect(() => {
     if (sessionLogged.current) return;
     if (!deckId) return;
@@ -85,11 +93,7 @@ export default function QuizResults() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Pressable
-        onPress={() => navigateOnce(() => router.replace(`/deck/${deckId}`))}
-        disabled={navBusy}
-        style={[styles.pill, navBusy && { opacity: 0.5 }]}
-      >
+      <Pressable onPress={() => navigateOnce(goBackToDeck)} disabled={navBusy} style={styles.pill}>
         <Text style={styles.pillText}>← Back</Text>
       </Pressable>
 
@@ -120,15 +124,15 @@ export default function QuizResults() {
         <Pressable
           onPress={() => navigateOnce(() => router.replace(`/deck/${deckId}/quiz`))}
           disabled={navBusy}
-          style={[styles.primary, navBusy && { opacity: 0.5 }]}
+          style={styles.primary}
         >
           <Text style={styles.primaryText}>Retry</Text>
         </Pressable>
 
         <Pressable
-          onPress={() => navigateOnce(() => router.replace(`/deck/${deckId}`))}
+          onPress={() => navigateOnce(goBackToDeck)}
           disabled={navBusy}
-          style={[styles.secondary, navBusy && { opacity: 0.5 }]}
+          style={styles.secondary}
         >
           <Text style={styles.secondaryText}>Back to deck</Text>
         </Pressable>
