@@ -16,7 +16,7 @@ import { formatDuration, formatTimestamp } from "../../../src/domain/sessionForm
 import type { Card } from "../../../src/models/card";
 import type { Deck } from "../../../src/models/deck";
 import type { StudySession } from "../../../src/models/session";
-import { deleteCard, getCards } from "../../../src/storage/cards";
+import { deleteCard, getCards, updateAllCardsDifficulty } from "../../../src/storage/cards";
 import { getDeckById } from "../../../src/storage/decks";
 import {
   getSessionsForDeck
@@ -40,7 +40,10 @@ export default function DeckDetails() {
   const [cards, setCards] = useState<Card[]>([]);
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [filter, setFilter] = useState<"all" | "easy" | "medium" | "hard">("all");
+  const [difficultyFilter, setDifficultyFilter] = useState<
+    "all" | "hard" | "medium" | "easy"
+  >("all");
+  const [showTools, setShowTools] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -95,6 +98,37 @@ export default function DeckDetails() {
     ]);
   };
 
+  const onSetDifficulty = () => {
+    if (!id) return;
+    Alert.alert("Set difficulty", "Apply to all cards in this deck?", [
+      {
+        text: "Easy",
+        onPress: async () => {
+          const updated = await updateAllCardsDifficulty(id, "easy");
+          setCards(updated);
+          Alert.alert("Updated all cards to Easy");
+        },
+      },
+      {
+        text: "Medium",
+        onPress: async () => {
+          const updated = await updateAllCardsDifficulty(id, "medium");
+          setCards(updated);
+          Alert.alert("Updated all cards to Medium");
+        },
+      },
+      {
+        text: "Hard",
+        onPress: async () => {
+          const updated = await updateAllCardsDifficulty(id, "hard");
+          setCards(updated);
+          Alert.alert("Updated all cards to Hard");
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const onExportDeck = async () => {
     try {
       const json = await exportDeckToJson(id);
@@ -117,9 +151,9 @@ export default function DeckDetails() {
   }, [sessions]);
 
   const filteredCards = useMemo(() => {
-    if (filter === "all") return cards;
-    return cards.filter((card) => (card.difficulty ?? "medium") === filter);
-  }, [cards, filter]);
+    if (difficultyFilter === "all") return cards;
+    return cards.filter((card) => (card.difficulty ?? "medium") === difficultyFilter);
+  }, [cards, difficultyFilter]);
 
   // Stats summary
   const stats = useMemo(() => computeDeckStats(sessions), [sessions]);
@@ -180,6 +214,15 @@ export default function DeckDetails() {
         Created {new Date(deck.createdAt).toLocaleString()}
       </Text>
 
+      <Pressable
+        onPress={() => setShowTools((prev) => !prev)}
+        style={styles.toolsToggle}
+      >
+        <Text style={styles.toolsToggleText}>
+          {showTools ? "Hide tools" : "Show tools"} {showTools ? "▾" : "▸"}
+        </Text>
+      </Pressable>
+
       <Pressable onPress={goReview} style={styles.secondaryBtn}>
         <Text style={styles.secondaryBtnText}>▶ Start review</Text>
       </Pressable>
@@ -188,96 +231,110 @@ export default function DeckDetails() {
         <Text style={styles.secondaryBtnText}>🧠 Start quiz</Text>
       </Pressable>
 
-      <Pressable
-        onPress={() => setShowStats((prev) => !prev)}
-        style={styles.sectionToggle}
-      >
-        <Text style={styles.sectionTitle}>Stats</Text>
-        <Text style={styles.sectionChevron}>{showStats ? "˄" : "˅"}</Text>
-      </Pressable>
-
-      {showStats && (
-        <View style={[styles.card, { marginTop: 10, gap: 8 }]}>
-          <Text style={{ color: "white", opacity: 0.9 }}>
-            Today: {stats.todaySessions} sessions • {stats.todayMinutes} min
-          </Text>
-
-          <Text style={{ color: "white", opacity: 0.9 }}>
-            Last 7 days: {stats.weekSessions} sessions
-            {stats.avgQuizPercent7d !== null
-              ? ` • avg quiz ${stats.avgQuizPercent7d}%`
-              : ""}
-          </Text>
-
-          <Text style={{ color: "white", opacity: 0.9 }}>
-            Best quiz:{" "}
-            {stats.bestQuizPercent !== null ? `${stats.bestQuizPercent}%` : "—"}
-          </Text>
-
-          <Text style={{ color: "white", opacity: 0.9 }}>
-            Streak: {stats.streakDays} day{stats.streakDays === 1 ? "" : "s"}
-          </Text>
-
-          <Text style={{ color: "white", opacity: 0.75, fontSize: 12 }}>
-            Total sessions: {stats.totalSessions}
-          </Text>
-        </View>
-      )}
-
-      <Pressable
-        onPress={() => setShowDetails((prev) => !prev)}
-        style={styles.sectionToggle}
-      >
-        <Text style={styles.sectionTitle}>Details</Text>
-        <Text style={styles.sectionChevron}>{showDetails ? "˄" : "˅"}</Text>
-      </Pressable>
-
-      {showDetails && (
-        <View style={styles.sectionBody}>
-          <Pressable onPress={onExportDeck} style={styles.secondaryBtn}>
-            <Text style={styles.secondaryBtnText}>Export deck</Text>
+      {showTools && (
+        <View style={styles.toolsArea}>
+          <Pressable onPress={onSetDifficulty} style={styles.secondaryBtn}>
+            <Text style={styles.secondaryBtnText}>Set difficulty</Text>
           </Pressable>
 
-          {/* Study history button */}
-          <Pressable onPress={goHistory} style={styles.historyButton}>
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text style={styles.historyButtonTitle}>
-                Study history ({sessions.length})
+          <Pressable
+            onPress={() => setShowStats((prev) => !prev)}
+            style={styles.sectionToggle}
+          >
+            <Text style={styles.sectionTitle}>Stats</Text>
+            <Text style={styles.sectionChevron}>{showStats ? "˄" : "˅"}</Text>
+          </Pressable>
+
+          {showStats && (
+            <View style={[styles.card, { marginTop: 10, gap: 8 }]}>
+              <Text style={{ color: "white", opacity: 0.9 }}>
+                Today: {stats.todaySessions} sessions • {stats.todayMinutes} min
               </Text>
 
-              {lastSession ? (
-                <Text style={styles.historyButtonSubtitle}>
-                  {formatTimestamp(lastSession.finishedAt)} •{" "}
-                  {lastSession.mode === "quiz"
-                    ? `Quiz • ${
-                        typeof lastSession.percent === "number"
-                          ? `${lastSession.percent}% • `
-                          : ""
-                      }`
-                    : "Review • "}
-                  {lastSession.total} cards •{" "}
-                  {formatDuration(lastSession.startedAt, lastSession.finishedAt)}
-                </Text>
-              ) : (
-                <Text style={styles.historyButtonSubtitle}>
-                  No study history yet. Start a review or quiz.
-                </Text>
-              )}
-            </View>
+              <Text style={{ color: "white", opacity: 0.9 }}>
+                Last 7 days: {stats.weekSessions} sessions
+                {stats.avgQuizPercent7d !== null
+                  ? ` • avg quiz ${stats.avgQuizPercent7d}%`
+                  : ""}
+              </Text>
 
-            <Text style={styles.chevron}>›</Text>
+              <Text style={{ color: "white", opacity: 0.9 }}>
+                Best quiz:{" "}
+                {stats.bestQuizPercent !== null ? `${stats.bestQuizPercent}%` : "—"}
+              </Text>
+
+              <Text style={{ color: "white", opacity: 0.9 }}>
+                Streak: {stats.streakDays} day{stats.streakDays === 1 ? "" : "s"}
+              </Text>
+
+              <Text style={{ color: "white", opacity: 0.75, fontSize: 12 }}>
+                Total sessions: {stats.totalSessions}
+              </Text>
+            </View>
+          )}
+
+          <Pressable
+            onPress={() => setShowDetails((prev) => !prev)}
+            style={styles.sectionToggle}
+          >
+            <Text style={styles.sectionTitle}>Details</Text>
+            <Text style={styles.sectionChevron}>{showDetails ? "˄" : "˅"}</Text>
           </Pressable>
+
+          {showDetails && (
+            <View style={styles.sectionBody}>
+              <Pressable onPress={onExportDeck} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>Export deck</Text>
+              </Pressable>
+
+              {/* Study history button */}
+              <Pressable onPress={goHistory} style={styles.historyButton}>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={styles.historyButtonTitle}>
+                    Study history ({sessions.length})
+                  </Text>
+
+                  {lastSession ? (
+                    <Text style={styles.historyButtonSubtitle}>
+                      {formatTimestamp(lastSession.finishedAt)} •{" "}
+                      {lastSession.mode === "quiz"
+                        ? `Quiz • ${
+                            typeof lastSession.percent === "number"
+                              ? `${lastSession.percent}% • `
+                              : ""
+                          }`
+                        : "Review • "}
+                      {lastSession.total} cards •{" "}
+                      {formatDuration(lastSession.startedAt, lastSession.finishedAt)}
+                    </Text>
+                  ) : (
+                    <Text style={styles.historyButtonSubtitle}>
+                      No study history yet. Start a review or quiz.
+                    </Text>
+                  )}
+                </View>
+
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
 
+      <View style={styles.filterHeader}>
+        <Text style={styles.filterCount}>
+          Showing {filteredCards.length} / {cards.length} cards
+        </Text>
+      </View>
+
       <View style={styles.filterRow}>
-        {(["all", "easy", "medium", "hard"] as const).map((value) => {
-          const isActive = filter === value;
+        {(["all", "hard", "medium", "easy"] as const).map((value) => {
+          const isActive = difficultyFilter === value;
           const label = value[0].toUpperCase() + value.slice(1);
           return (
             <Pressable
               key={value}
-              onPress={() => setFilter(value)}
+              onPress={() => setDifficultyFilter(value)}
               style={[styles.filterChip, isActive && styles.filterChipActive]}
             >
               <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
@@ -287,6 +344,12 @@ export default function DeckDetails() {
           );
         })}
       </View>
+
+      {filteredCards.length === 0 && (
+        <View style={[styles.card, { marginTop: 14 }]}>
+          <Text style={styles.emptyFilterText}>No cards with this difficulty.</Text>
+        </View>
+      )}
 
       <FlatList
         data={filteredCards}
@@ -384,6 +447,19 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: { color: "white", fontWeight: "900", fontSize: 16 },
 
+  toolsToggle: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  toolsToggleText: { color: "white", fontWeight: "800", fontSize: 12 },
+  toolsArea: { marginTop: 4 },
+
   card: {
     padding: 16,
     borderRadius: 16,
@@ -441,11 +517,13 @@ const styles = StyleSheet.create({
   sectionBody: { marginTop: 10, gap: 10 },
 
   filterRow: {
-    marginTop: 14,
+    marginTop: 8,
     flexDirection: "row",
     gap: 8,
     flexWrap: "wrap",
   },
+  filterHeader: { marginTop: 14 },
+  filterCount: { color: "white", opacity: 0.75, fontSize: 12, fontWeight: "800" },
   filterChip: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -458,8 +536,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.28)",
     borderColor: "rgba(255,255,255,0.35)",
   },
-  filterText: { color: "white", opacity: 0.85, fontWeight: "800", fontSize: 12 },
+  filterText: { color: "white", opacity: 0.7, fontWeight: "800", fontSize: 12 },
   filterTextActive: { opacity: 1 },
+  emptyFilterText: { color: "white", opacity: 0.85, fontWeight: "800" },
 
   bottomBar: {
     position: "absolute",

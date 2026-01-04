@@ -50,6 +50,16 @@ export async function updateCard(deckId: string, updatedCard: Card): Promise<Car
   return updated;
 }
 
+export async function updateAllCardsDifficulty(
+  deckId: string,
+  difficulty: Card["difficulty"]
+): Promise<Card[]> {
+  const cards = await getCards(deckId);
+  const updated = cards.map((card) => ({ ...card, difficulty }));
+  await setCards(deckId, updated);
+  return updated;
+}
+
 /** Used when a deck is deleted (cascade delete its cards). */
 export async function deleteCardsForDeck(deckId: string): Promise<void> {
   if (!deckId) return;

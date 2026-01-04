@@ -58,9 +58,10 @@ export default function QuizScreen() {
     (async () => {
       if (!deckId) return;
       const data = await getCards(deckId);
+      const ordered = smartShuffle(data);
 
       if (alive) {
-        setCards(smartShuffle(data));
+        setCards(ordered);
         setLoaded(true);
         setIndex(0);
 

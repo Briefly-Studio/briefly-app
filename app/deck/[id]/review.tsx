@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { Card } from "../../../src/models/card";
+import { smartShuffle } from "../../../src/domain/smartShuffle";
 import { getCards } from "../../../src/storage/cards";
 
 const APP_BG = "#2FA4A3";
@@ -38,9 +39,10 @@ export default function ReviewScreen() {
     (async () => {
       if (!deckId) return;
       const data = await getCards(deckId);
+      const ordered = smartShuffle(data);
 
       if (alive) {
-        setCards(data);
+        setCards(ordered);
         setLoaded(true);
         setIndex(0);
         setFlipped(false);
