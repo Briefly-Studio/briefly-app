@@ -73,7 +73,10 @@ export async function importDeckFromJson(payload: string): Promise<string> {
 
   const title = parsed.deck?.title;
   const createdAt = parsed.deck?.createdAt;
-  if (typeof title !== "string" || typeof createdAt !== "string") {
+  if (
+    typeof title !== "string" ||
+    (typeof createdAt !== "string" && typeof createdAt !== "number")
+  ) {
     throw new Error("Deck metadata is missing or invalid.");
   }
 
@@ -82,7 +85,9 @@ export async function importDeckFromJson(payload: string): Promise<string> {
   }
 
   const deckId = makeId();
-  const newDeck: Deck = { id: deckId, title, createdAt };
+  const createdAtIso =
+    typeof createdAt === "number" ? new Date(createdAt).toISOString() : createdAt;
+  const newDeck: Deck = { id: deckId, title, createdAt: createdAtIso };
   await addDeck(newDeck);
 
   const newCards: Card[] = parsed.cards.map((card) => {

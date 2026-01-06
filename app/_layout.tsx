@@ -1,16 +1,90 @@
-import { Stack } from "expo-router";
+import * as Linking from "expo-linking";
+import { Stack, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
+
+import { handleIncomingFile } from "../src/domain/openFileHandler";
 
 const APP_BG = "#2FA4A3";
 
 export default function Layout() {
+  const router = useRouter();
+  const [importing, setImporting] = useState(false);
+
+  const extractFileUri = (url: string): string | null => {
+    const decoded = decodeURIComponent(url);
+    if (decoded.startsWith("file://")) return decoded;
+    const fileMatch = decoded.match(/file:\/\/[^ ]+/);
+    if (fileMatch) return fileMatch[0];
+    if (decoded.startsWith("briefly://")) {
+      const path = decoded.replace(/^briefly:\/\//, "");
+      if (path.startsWith("file://")) return path;
+      if (path.startsWith("/")) return `file://${path}`;
+    }
+    return null;
+  };
+
+  const handleUrl = useCallback(
+    async (url: string | null) => {
+      if (!url) return;
+      const fileUri = extractFileUri(url);
+      if (!fileUri) return;
+      setImporting(true);
+      try {
+        const newDeckId = await handleIncomingFile(fileUri);
+        router.replace(`/deck/${newDeckId}`);
+      } catch (error) {
+        Alert.alert(
+          "Import failed",
+          error instanceof Error ? error.message : "This file is not a valid Briefly deck."
+        );
+      } finally {
+        setImporting(false);
+      }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      handleUrl(url);
+    });
+    const sub = Linking.addEventListener("url", ({ url }) => {
+      handleUrl(url);
+    });
+    return () => sub.remove();
+  }, [handleUrl]);
+
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: {
-          backgroundColor: APP_BG,
-        },
-      }}
-    />
+    <View style={styles.container}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: {
+            backgroundColor: APP_BG,
+          },
+        }}
+      />
+      {importing && (
+        <View style={styles.importOverlay}>
+          <Text style={styles.importText}>Importing deck…</Text>
+        </View>
+      )}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: APP_BG },
+  importOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  importText: { color: "white", fontWeight: "900", fontSize: 18 },
+});

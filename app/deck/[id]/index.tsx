@@ -9,9 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { computeDeckStats } from "../../../src/domain/deckStats";
-import { exportDeckToJson } from "../../../src/domain/deckPortability";
 import { formatDuration, formatTimestamp } from "../../../src/domain/sessionFormat";
 import type { Card } from "../../../src/models/card";
 import type { Deck } from "../../../src/models/deck";
@@ -129,16 +127,8 @@ export default function DeckDetails() {
     ]);
   };
 
-  const onExportDeck = async () => {
-    try {
-      const json = await exportDeckToJson(id);
-      Alert.alert("Export deck", json);
-    } catch (error) {
-      Alert.alert(
-        "Export failed",
-        error instanceof Error ? error.message : "Please try again."
-      );
-    }
+  const onExportDeck = () => {
+    router.push(`/deck/${id}/export`);
   };
 
   const isEmptyCards = loaded && deck && cards.length === 0;
@@ -284,7 +274,7 @@ export default function DeckDetails() {
           {showDetails && (
             <View style={styles.sectionBody}>
               <Pressable onPress={onExportDeck} style={styles.secondaryBtn}>
-                <Text style={styles.secondaryBtnText}>Export deck</Text>
+                <Text style={styles.secondaryBtnText}>Share deck</Text>
               </Pressable>
 
               {/* Study history button */}

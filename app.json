@@ -5,11 +5,21 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "brieflyapp",
+    "scheme": "briefly",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Briefly Deck",
+            "LSItemContentTypes": ["public.json"],
+            "LSHandlerRank": "Owner",
+            "CFBundleTypeExtensions": ["briefly"]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -74,7 +74,7 @@ export default function DecksHome() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push("/import-deck")}
+          onPress={() => router.push("/import")}
           style={styles.newDeckBtn}
         >
           <Text style={styles.newDeckBtnText}>Import deck</Text>
@@ -89,11 +89,8 @@ export default function DecksHome() {
         <Text style={styles.listTitle}>Briefly</Text>
 
         <View style={styles.headerButtons}>
-          <Pressable
-            onPress={() => router.push("/import-deck")}
-            style={styles.newDeckBtn}
-          >
-            <Text style={styles.newDeckBtnText}>Import</Text>
+          <Pressable onPress={() => router.push("/import")} style={styles.newDeckBtn}>
+            <Text style={styles.newDeckBtnText}>Import deck</Text>
           </Pressable>
           <Pressable
             onPress={() => router.push("/create-deck")}

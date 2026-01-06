@@ -1,3 +1,4 @@
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -12,6 +13,15 @@ export default function ImportDeckScreen() {
   const [payload, setPayload] = useState("");
 
   const canImport = payload.trim().length > 0;
+
+  const onPaste = async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      setPayload(text);
+    } catch {
+      Alert.alert("Clipboard unavailable", "Please paste the JSON manually.");
+    }
+  };
 
   const onImport = async () => {
     if (!canImport) {
@@ -48,7 +58,12 @@ export default function ImportDeckScreen() {
 
       <Text style={styles.title}>Import deck</Text>
 
-      <Text style={styles.label}>Deck JSON</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>Deck JSON</Text>
+        <Pressable onPress={onPaste} style={styles.pasteBtn}>
+          <Text style={styles.pasteBtnText}>Paste</Text>
+        </Pressable>
+      </View>
       <TextInput
         value={payload}
         onChangeText={setPayload}
@@ -93,6 +108,20 @@ const styles = StyleSheet.create({
   primaryText: { color: "white", fontWeight: "900" },
   title: { fontSize: 30, fontWeight: "900", color: "black", marginTop: 4 },
   label: { color: "white", fontWeight: "800", opacity: 0.9, marginTop: 6 },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pasteBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  pasteBtnText: { color: "white", fontWeight: "800", fontSize: 12 },
   input: {
     minHeight: 220,
     borderRadius: 16,
