@@ -1,38 +1,57 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Deck } from "../models/deck";
+import type { DeckRecord } from "../models/deck";
+import { upgradeDeck } from "../models/deck";
 import { DECKS_KEY, cardsKeyForDeck } from "./keys";
 import { deleteSessionsForDeck } from "./sessions";
 
-export async function getDecks(): Promise<Deck[]> {
+export async function getDecks(): Promise<DeckRecord[]> {
   try {
     const raw = await AsyncStorage.getItem(DECKS_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as Deck[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const upgraded = parsed.map((deck) => upgradeDeck(deck));
+    try {
+      await setDecks(upgraded);
+    } catch {
+      // ignore
+    }
+    return upgraded;
   } catch {
     return [];
   }
 }
 
-export async function setDecks(decks: Deck[]) {
+export async function setDecks(decks: DeckRecord[]) {
   await AsyncStorage.setItem(DECKS_KEY, JSON.stringify(decks));
 }
 
-export async function addDeck(deck: Deck): Promise<Deck[]> {
+export async function addDeck(deck: DeckRecord): Promise<DeckRecord[]> {
   const decks = await getDecks();
   const updated = [deck, ...decks];
   await setDecks(updated);
   return updated;
 }
 
-export async function getDeckById(id: string): Promise<Deck | null> {
+export async function getDeckById(id: string): Promise<DeckRecord | null> {
   const decks = await getDecks();
   return decks.find((d) => d.id === id) ?? null;
 }
 
-export async function deleteDeckById(id: string): Promise<Deck[]> {
+export async function deleteDeckById(id: string): Promise<DeckRecord[]> {
   const decks = await getDecks();
-  const updated = decks.filter((d) => d.id !== id);
+  const now = new Date().toISOString();
+  const updated = decks.map((deck) => {
+    if (deck.id !== id) return deck;
+    if (deck.deletedAt) return deck;
+    return {
+      ...deck,
+      deletedAt: now,
+      updatedAt: now,
+      rev: deck.rev + 1,
+      dirty: true,
+    };
+  });
   await setDecks(updated);
 
   // cascade delete (same key function used everywhere)

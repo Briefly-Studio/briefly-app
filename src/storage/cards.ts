@@ -1,59 +1,73 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Card, Difficulty } from "../models/card";
+import type { CardRecord } from "../models/card";
+import { upgradeCard } from "../models/card";
 import { cardsKeyForDeck } from "./keys";
 
-const DEFAULT_DIFFICULTY: Difficulty = "medium";
-
-const normalizeCard = (card: Card): Card => ({
-  ...card,
-  difficulty: card.difficulty ?? DEFAULT_DIFFICULTY,
-});
-
-export async function getCards(deckId: string): Promise<Card[]> {
+export async function getCards(deckId: string): Promise<CardRecord[]> {
   if (!deckId) return [];
   try {
     const raw = await AsyncStorage.getItem(cardsKeyForDeck(deckId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? (parsed as Card[]).map((card) => normalizeCard(card))
-      : [];
+    if (!Array.isArray(parsed)) return [];
+    const upgraded = parsed.map((card) => upgradeCard(card));
+    try {
+      await setCards(deckId, upgraded);
+    } catch {
+      // ignore
+    }
+    return upgraded;
   } catch {
     return [];
   }
 }
 
-export async function setCards(deckId: string, cards: Card[]): Promise<void> {
+export async function setCards(deckId: string, cards: CardRecord[]): Promise<void> {
   if (!deckId) return;
-  const normalized = cards.map((card) => normalizeCard(card));
-  await AsyncStorage.setItem(cardsKeyForDeck(deckId), JSON.stringify(normalized));
+  await AsyncStorage.setItem(cardsKeyForDeck(deckId), JSON.stringify(cards));
 }
 
-export async function addCard(deckId: string, card: Card): Promise<Card[]> {
+export async function addCard(deckId: string, card: CardRecord): Promise<CardRecord[]> {
   const existing = await getCards(deckId);
-  const updated = [normalizeCard(card), ...existing];
+  const updated = [upgradeCard(card), ...existing];
   await setCards(deckId, updated);
   return updated;
 }
 
-export async function deleteCard(deckId: string, cardId: string): Promise<Card[]> {
+export async function deleteCard(deckId: string, cardId: string): Promise<CardRecord[]> {
   const existing = await getCards(deckId);
-  const updated = existing.filter((c) => c.id !== cardId);
+  const now = new Date().toISOString();
+  const updated = existing.map((card) => {
+    if (card.id !== cardId) return card;
+    if (card.deletedAt) return card;
+    return {
+      ...card,
+      deletedAt: now,
+      updatedAt: now,
+      rev: card.rev + 1,
+      dirty: true,
+    };
+  });
   await setCards(deckId, updated);
   return updated;
 }
 
-export async function updateCard(deckId: string, updatedCard: Card): Promise<Card[]> {
+export async function updateCard(
+  deckId: string,
+  updatedCard: CardRecord
+): Promise<CardRecord[]> {
   const cards = await getCards(deckId);
-  const updated = cards.map((c) => (c.id === updatedCard.id ? updatedCard : c));
+  const updated = cards.map((c) =>
+    c.id === updatedCard.id ? upgradeCard(updatedCard) : c
+  );
   await setCards(deckId, updated);
   return updated;
 }
 
 export async function updateAllCardsDifficulty(
   deckId: string,
-  difficulty: Card["difficulty"]
-): Promise<Card[]> {
+  difficulty: CardRecord["difficulty"]
+): Promise<CardRecord[]> {
   const cards = await getCards(deckId);
   const updated = cards.map((card) => ({ ...card, difficulty }));
   await setCards(deckId, updated);
