@@ -108,49 +108,22 @@ export const SyncService = {
 
   async syncOnce(): Promise<void> {
     const deviceId = await getOrCreateDeviceId();
-
-    // 1) PUSH
     const dirty = await this.collectDirty();
-    if (dirty.length) {
-      const pushRes = await fetch(`${SYNC_BASE_URL}/sync/push`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ deviceId, changes: dirty }),
-      });
+    if (dirty.length === 0) return;
 
-      if (!pushRes.ok) throw new Error(`push failed: ${pushRes.status}`);
+    const pushRes = await fetch(`${SYNC_BASE_URL}/sync/push`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deviceId, changes: dirty }),
+    });
 
-      const pushJson = (await pushRes.json()) as PushResponse;
+    if (!pushRes.ok) throw new Error(`push failed: ${pushRes.status}`);
 
-      const acceptedSet = new Set(pushJson.accepted);
-
-      const acceptedDecks = dirty
-        .filter((c) => c.entity === "deck" && acceptedSet.has(c.id))
-        .map((c) => c.id);
-
-      const acceptedCards = dirty
-        .filter((c) => c.entity === "card" && acceptedSet.has(c.id))
-        .map((c) => c.id);
-
-      await this.markClean("deck", acceptedDecks);
-      await this.markClean("card", acceptedCards);
+    const pushJson = (await pushRes.json()) as PushResponse;
+    const accepted = Array.isArray(pushJson.accepted) ? pushJson.accepted : [];
+    if (accepted.length > 0) {
+      await this.markClean("deck", accepted);
+      await this.markClean("card", accepted);
     }
-
-    // 2) PULL
-    const cursor = await getCursor();
-
-    const url = new URL(`${SYNC_BASE_URL}/sync/pull`);
-    url.searchParams.set("deviceId", deviceId);
-    url.searchParams.set("limit", "200");
-    if (cursor) url.searchParams.set("cursor", cursor);
-
-    const pullRes = await fetch(url.toString());
-    if (!pullRes.ok) throw new Error(`pull failed: ${pullRes.status}`);
-
-    const pullJson = (await pullRes.json()) as PullResponse;
-
-    // 3) apply + 4) persist cursor
-    await applyRemoteChanges(pullJson.changes);
-    if (pullJson.cursor) await setCursor(pullJson.cursor);
   },
 };
