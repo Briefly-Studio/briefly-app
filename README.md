@@ -1,3 +1,9 @@
+## Security Notes
+
+- No AWS credentials, secrets, or tokens are committed to this repository.
+- API endpoints and infrastructure are configured in AWS (not hardcoded in source).
+- If environment variables are used locally, they should be stored in a local `.env` file and never committed.
+
 # Interval (Briefly Studios)
 
 Interval (formerly Briefly) is an **offline-first** flashcard app with a **change-based sync engine** that lets users study fully offline and then seamlessly synchronize across devices.
