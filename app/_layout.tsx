@@ -1,8 +1,9 @@
 import * as Linking from "expo-linking";
 import { Stack, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
+import { SyncService } from "../src/cloud/sync/SyncService";
 import { handleIncomingFile } from "../src/domain/openFileHandler";
 
 const APP_BG = "#2FA4A3";
@@ -10,6 +11,7 @@ const APP_BG = "#2FA4A3";
 export default function Layout() {
   const router = useRouter();
   const [importing, setImporting] = useState(false);
+  const didSyncRef = useRef(false);
 
   const extractFileUri = (url: string): string | null => {
     const decoded = decodeURIComponent(url);
@@ -54,6 +56,15 @@ export default function Layout() {
     });
     return () => sub.remove();
   }, [handleUrl]);
+
+  useEffect(() => {
+    if (importing) return;
+    if (didSyncRef.current) return;
+    didSyncRef.current = true;
+    SyncService.syncOnce()
+      .then(() => console.log("SYNC OK"))
+      .catch((e) => console.error("SYNC FAILED", e));
+  }, [importing]);
 
   return (
     <View style={styles.container}>

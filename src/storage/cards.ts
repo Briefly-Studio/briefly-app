@@ -3,7 +3,7 @@ import type { CardRecord } from "../models/card";
 import { upgradeCard } from "../models/card";
 import { cardsKeyForDeck } from "./keys";
 
-export async function getCards(deckId: string): Promise<CardRecord[]> {
+export async function getCardsAll(deckId: string): Promise<CardRecord[]> {
   if (!deckId) return [];
   try {
     const raw = await AsyncStorage.getItem(cardsKeyForDeck(deckId));
@@ -22,20 +22,29 @@ export async function getCards(deckId: string): Promise<CardRecord[]> {
   }
 }
 
+export async function getCards(deckId: string): Promise<CardRecord[]> {
+  const cards = await getCardsAll(deckId);
+  return cards.filter((card) => !card.deletedAt);
+}
+
 export async function setCards(deckId: string, cards: CardRecord[]): Promise<void> {
   if (!deckId) return;
   await AsyncStorage.setItem(cardsKeyForDeck(deckId), JSON.stringify(cards));
 }
 
 export async function addCard(deckId: string, card: CardRecord): Promise<CardRecord[]> {
-  const existing = await getCards(deckId);
-  const updated = [upgradeCard(card), ...existing];
+  const existing = await getCardsAll(deckId);
+  const now = new Date().toISOString();
+  const updated = [
+    { ...upgradeCard(card), updatedAt: now, dirty: true, deletedAt: undefined },
+    ...existing,
+  ];
   await setCards(deckId, updated);
   return updated;
 }
 
 export async function deleteCard(deckId: string, cardId: string): Promise<CardRecord[]> {
-  const existing = await getCards(deckId);
+  const existing = await getCardsAll(deckId);
   const now = new Date().toISOString();
   const updated = existing.map((card) => {
     if (card.id !== cardId) return card;
@@ -56,9 +65,12 @@ export async function updateCard(
   deckId: string,
   updatedCard: CardRecord
 ): Promise<CardRecord[]> {
-  const cards = await getCards(deckId);
+  const cards = await getCardsAll(deckId);
+  const now = new Date().toISOString();
   const updated = cards.map((c) =>
-    c.id === updatedCard.id ? upgradeCard(updatedCard) : c
+    c.id === updatedCard.id
+      ? { ...upgradeCard(updatedCard), updatedAt: now, dirty: true, deletedAt: undefined }
+      : c
   );
   await setCards(deckId, updated);
   return updated;
@@ -68,8 +80,19 @@ export async function updateAllCardsDifficulty(
   deckId: string,
   difficulty: CardRecord["difficulty"]
 ): Promise<CardRecord[]> {
-  const cards = await getCards(deckId);
-  const updated = cards.map((card) => ({ ...card, difficulty }));
+  const cards = await getCardsAll(deckId);
+  const now = new Date().toISOString();
+  const updated = cards.map((card) =>
+    card.deletedAt
+      ? card
+      : {
+          ...card,
+          difficulty,
+          updatedAt: now,
+          dirty: true,
+          deletedAt: undefined,
+        }
+  );
   await setCards(deckId, updated);
   return updated;
 }
