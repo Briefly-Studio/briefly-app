@@ -1,13 +1,14 @@
 import type { CardRecord } from "../../models/card";
 import type { DeckRecord } from "../../models/deck";
+import type { StudySession } from "../../models/session";
 
-export type EntityType = "deck" | "card";
+export type EntityType = "deck" | "card" | "session";
 
 export type Change = {
   id: string;
   entity: EntityType;
   op: "upsert" | "delete";
-  record: DeckRecord | CardRecord;
+  record: DeckRecord | CardRecord | StudySession;
   ts: string;
 };
 

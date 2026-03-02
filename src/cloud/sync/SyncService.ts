@@ -1,10 +1,10 @@
-import type { Change, EntityType } from "./types";
 import type { CardRecord } from "../../models/card";
 import type { DeckRecord } from "../../models/deck";
 import type { StudySession } from "../../models/session";
 import { getCards, setCards } from "../../storage/cards";
 import { getDecks, setDecks } from "../../storage/decks";
 import { getSessions } from "../../storage/sessions";
+import type { Change, EntityType } from "./types";
 
 class SyncServiceImpl {
   async init(): Promise<void> {}
