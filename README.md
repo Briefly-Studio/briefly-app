@@ -1,50 +1,48 @@
-# Welcome to your Expo app 👋
+# Interval (Briefly Studios)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Interval is an **offline-first** study app built with **React Native + Expo**.  
+The goal is to make studying fast, reliable, and usable anywhere—without needing an internet connection.
 
-## Get started
+This repository contains the mobile app and supporting project documentation.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## What Interval Does
 
-2. Start the app
+- Create and study decks (flashcards / quick review)
+- Offline-first workflow (study works even with no connection)
+- Designed to scale into cloud sync while keeping the local experience smooth and reliable
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+**Client**
+- React Native (Expo)
+- TypeScript
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**Cloud / Operations (AWS)**
+- IAM
+- Lambda
+- DynamoDB
+- API Gateway (configured in AWS)
+- Cost controls: AWS Budgets + Cost Explorer
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## Highlights (Why this project matters)
 
+- Built with a strong focus on **reliability**, **data consistency**, and **repeatable workflows**
+- Developed with an operations mindset: clear documentation, troubleshooting, and cost awareness
+- Practical serverless backend foundation ready for sync and future features
+
+---
+
+## Local Development
+
+### Prerequisites
+- Node.js (LTS recommended)
+- Expo CLI
+
+### Install & Run
 ```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
