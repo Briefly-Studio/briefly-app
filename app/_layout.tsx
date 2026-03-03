@@ -6,12 +6,20 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { SyncService } from "../src/cloud/sync/SyncService";
 import { handleIncomingFile } from "../src/domain/openFileHandler";
 
+
 const APP_BG = "#2FA4A3";
 
 export default function Layout() {
+
   const router = useRouter();
   const [importing, setImporting] = useState(false);
   const didSyncRef = useRef(false);
+
+  useEffect(() => {
+    if (didSyncRef.current) return;
+    didSyncRef.current = true;
+    SyncService.syncOnce().catch(console.warn);
+  }, []);
 
   const extractFileUri = (url: string): string | null => {
     const decoded = decodeURIComponent(url);

@@ -1,36 +1,30 @@
 import type { CardRecord } from "../../models/card";
 import type { DeckRecord } from "../../models/deck";
-import type { StudySession } from "../../models/session";
+import type { SessionRecord } from "../../models/session";
+import type { Change, EntityType } from "./types";
 
 import { getCardsAll, setCards } from "../../storage/cards";
 import { getDecksAll, setDecks } from "../../storage/decks";
+import { getDeviceId } from "../../storage/device";
 import { getSessions, setSessions } from "../../storage/sessions";
+import { getSyncCursor, setSyncCursor } from "../../storage/sync";
+import { pullChanges, pushChanges } from "./http";
 
-import { getCursor, getOrCreateDeviceId, setCursor } from "./meta";
-import type { Change, PullResponse, PushResponse } from "./types";
+const toTime = (value: string | undefined) => {
+  const t = value ? Date.parse(value) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
 
-// Public repo safe: base URL comes from env
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-
-function requireBaseUrl(): string {
-  if (!API_BASE_URL) {
-    throw new Error("Missing EXPO_PUBLIC_API_BASE_URL");
-  }
-  return API_BASE_URL;
-}
-
-async function applyRemoteChanges(changes: Change[]): Promise<void> {
+async function applyChanges(changes: Change[]): Promise<void> {
   if (changes.length === 0) return;
 
-  // enforce ordering just in case
-  const ordered = [...changes].sort((a, b) => a.ts.localeCompare(b.ts));
   const now = new Date().toISOString();
+  const ordered = [...changes].sort((a, b) => toTime(a.ts) - toTime(b.ts));
 
   const deckChanges = ordered.filter((c) => c.entity === "deck");
   const cardChanges = ordered.filter((c) => c.entity === "card");
   const sessionChanges = ordered.filter((c) => c.entity === "session");
 
-  // ----- Apply decks -----
   if (deckChanges.length) {
     const decks = await getDecksAll();
     const byId = new Map(decks.map((d) => [d.id, d]));
@@ -38,39 +32,38 @@ async function applyRemoteChanges(changes: Change[]): Promise<void> {
     for (const ch of deckChanges) {
       const incoming = ch.record as DeckRecord;
       const existing = byId.get(ch.id);
-
-      // idempotency guard: skip older/equal updates
-      if (existing?.updatedAt && existing.updatedAt >= ch.ts) continue;
+      if (existing && toTime(existing.updatedAt) >= toTime(ch.ts)) continue;
 
       if (ch.op === "delete") {
-        if (existing) {
-          byId.set(ch.id, {
-            ...existing,
-            deletedAt: (incoming as any).deletedAt ?? ch.ts,
-            updatedAt: ch.ts,
-            dirty: false,
-            lastSyncedAt: now,
-          });
-        }
+        const deletedAt = incoming.deletedAt ?? ch.ts;
+        byId.set(ch.id, {
+          ...incoming,
+          deletedAt,
+          updatedAt: ch.ts,
+          dirty: false,
+          lastSyncedAt: now,
+        });
         continue;
       }
 
-      byId.set(ch.id, { ...incoming, dirty: false, lastSyncedAt: now });
+      byId.set(ch.id, {
+        ...incoming,
+        deletedAt: undefined,
+        dirty: false,
+        lastSyncedAt: now,
+      });
     }
 
     await setDecks(Array.from(byId.values()));
   }
 
-  // ----- Apply cards (group by deckId) -----
   if (cardChanges.length) {
     const byDeckId = new Map<string, Change[]>();
-
     for (const ch of cardChanges) {
       const incoming = ch.record as CardRecord;
-      const deckId = (incoming as any).deckId as string | undefined;
-      if (!deckId) continue;
-      if (!byDeckId.has(deckId)) byDeckId.set(deckId, []);
-      byDeckId.get(deckId)!.push(ch);
+      if (!incoming.deckId) continue;
+      if (!byDeckId.has(incoming.deckId)) byDeckId.set(incoming.deckId, []);
+      byDeckId.get(incoming.deckId)!.push(ch);
     }
 
     for (const [deckId, deckCardChanges] of byDeckId.entries()) {
@@ -80,57 +73,62 @@ async function applyRemoteChanges(changes: Change[]): Promise<void> {
       for (const ch of deckCardChanges) {
         const incoming = ch.record as CardRecord;
         const existing = byId.get(ch.id);
-
-        if (existing?.updatedAt && existing.updatedAt >= ch.ts) continue;
+        if (existing && toTime(existing.updatedAt) >= toTime(ch.ts)) continue;
 
         if (ch.op === "delete") {
-          if (existing) {
-            byId.set(ch.id, {
-              ...existing,
-              deletedAt: (incoming as any).deletedAt ?? ch.ts,
-              updatedAt: ch.ts,
-              dirty: false,
-              lastSyncedAt: now,
-            });
-          }
+          const deletedAt = incoming.deletedAt ?? ch.ts;
+          byId.set(ch.id, {
+            ...incoming,
+            deletedAt,
+            updatedAt: ch.ts,
+            dirty: false,
+            lastSyncedAt: now,
+          });
           continue;
         }
 
-        byId.set(ch.id, { ...incoming, dirty: false, lastSyncedAt: now });
+        byId.set(ch.id, {
+          ...incoming,
+          deletedAt: undefined,
+          dirty: false,
+          lastSyncedAt: now,
+        });
       }
 
       await setCards(deckId, Array.from(byId.values()));
     }
   }
 
-  // ----- Apply sessions -----
   if (sessionChanges.length) {
     const sessions = await getSessions();
-    const byId = new Map((sessions as any[]).map((s) => [s.id, s]));
+    const byId = new Map(sessions.map((s) => [s.id, s]));
 
     for (const ch of sessionChanges) {
-      const incoming = ch.record as unknown as StudySession;
+      const incoming = ch.record as SessionRecord;
       const existing = byId.get(ch.id);
-
-      if (existing?.updatedAt && existing.updatedAt >= ch.ts) continue;
+      if (existing && toTime(existing.updatedAt) >= toTime(ch.ts)) continue;
 
       if (ch.op === "delete") {
-        if (existing) {
-          byId.set(ch.id, {
-            ...existing,
-            deletedAt: (incoming as any).deletedAt ?? ch.ts,
-            updatedAt: ch.ts,
-            dirty: false,
-            lastSyncedAt: now,
-          });
-        }
+        const deletedAt = incoming.deletedAt ?? ch.ts;
+        byId.set(ch.id, {
+          ...incoming,
+          deletedAt,
+          updatedAt: ch.ts,
+          dirty: false,
+          lastSyncedAt: now,
+        });
         continue;
       }
 
-      byId.set(ch.id, { ...(incoming as any), dirty: false, lastSyncedAt: now });
+      byId.set(ch.id, {
+        ...incoming,
+        deletedAt: undefined,
+        dirty: false,
+        lastSyncedAt: now,
+      });
     }
 
-    await setSessions(Array.from(byId.values()) as any);
+    await setSessions(Array.from(byId.values()));
   }
 }
 
@@ -145,7 +143,7 @@ export const SyncService = {
         id: deck.id,
         entity: "deck",
         op: deck.deletedAt ? "delete" : "upsert",
-        record: deck as DeckRecord,
+        record: deck,
         ts: deck.updatedAt,
       });
     }
@@ -158,105 +156,115 @@ export const SyncService = {
           id: card.id,
           entity: "card",
           op: card.deletedAt ? "delete" : "upsert",
-          record: card as CardRecord,
+          record: card,
           ts: card.updatedAt,
         });
       }
     }
 
     const sessions = await getSessions();
-    for (const session of sessions as any[]) {
-      if (!session?.dirty) continue;
+    for (const session of sessions) {
+      if (!session.dirty) continue;
       changes.push({
         id: session.id,
         entity: "session",
         op: session.deletedAt ? "delete" : "upsert",
-        record: session as StudySession,
-        ts: session.updatedAt ?? new Date().toISOString(),
+        record: session,
+        ts: session.updatedAt,
       });
     }
 
     return changes;
   },
 
-  async markClean(entity: "deck" | "card" | "session", ids: string[]): Promise<void> {
+  async markClean(entity: EntityType, ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     const now = new Date().toISOString();
     const idSet = new Set(ids);
 
     if (entity === "deck") {
       const decks = await getDecksAll();
-      const updated = decks.map((d) =>
-        idSet.has(d.id) ? { ...d, dirty: false, lastSyncedAt: now } : d
+      const updated = decks.map((deck) =>
+        idSet.has(deck.id) ? { ...deck, dirty: false, lastSyncedAt: now } : deck
       );
       await setDecks(updated);
       return;
     }
 
-    if (entity === "session") {
-      const sessions = await getSessions();
-      const updated = (sessions as any[]).map((s) =>
-        idSet.has(s.id) ? { ...s, dirty: false, lastSyncedAt: now } : s
-      );
-      await setSessions(updated as any);
+    if (entity === "card") {
+      const decks = await getDecksAll();
+      for (const deck of decks) {
+        const cards = await getCardsAll(deck.id);
+        const updated = cards.map((card) =>
+          idSet.has(card.id) ? { ...card, dirty: false, lastSyncedAt: now } : card
+        );
+        await setCards(deck.id, updated);
+      }
       return;
     }
 
-    // cards: need scan all decks because cards stored by deck bucket
-    const decks = await getDecksAll();
-    for (const deck of decks) {
-      const cards = await getCardsAll(deck.id);
-      const updated = cards.map((c) =>
-        idSet.has(c.id) ? { ...c, dirty: false, lastSyncedAt: now } : c
-      );
-      await setCards(deck.id, updated);
-    }
+    // entity === "session"
+    const sessions = await getSessions();
+    const updated = sessions.map((session) =>
+      idSet.has(session.id)
+        ? { ...session, dirty: false, lastSyncedAt: now }
+        : session
+    );
+    await setSessions(updated);
   },
 
   async syncOnce(): Promise<void> {
-    const baseUrl = requireBaseUrl();
-    const deviceId = await getOrCreateDeviceId();
+    try {
+      console.log("[sync] start");
 
-    // 1) PUSH
-    const dirty = await this.collectDirty();
-    if (dirty.length > 0) {
-      const pushRes = await fetch(`${baseUrl}/sync/push`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ deviceId, changes: dirty }),
-      });
+      const deviceId = await getDeviceId();
 
-      if (!pushRes.ok) throw new Error(`push failed: ${pushRes.status}`);
+      // 1) PUSH
+      const outgoing = await this.collectDirty();
+      console.log("[sync] outgoing dirty:", outgoing.length);
 
-      const pushJson = (await pushRes.json()) as PushResponse;
-      const accepted = Array.isArray(pushJson.accepted) ? pushJson.accepted : [];
-      if (accepted.length > 0) {
-        // group accepted by entity based on outgoing list
-        const acceptedSet = new Set(accepted);
+      if (outgoing.length > 0) {
+        const pushJson = await pushChanges({ deviceId, changes: outgoing });
+        const accepted = Array.isArray(pushJson.accepted) ? pushJson.accepted : [];
+        console.log("[sync] push accepted:", accepted.length);
 
-        const deckIds = dirty.filter((c) => c.entity === "deck" && acceptedSet.has(c.id)).map((c) => c.id);
-        const cardIds = dirty.filter((c) => c.entity === "card" && acceptedSet.has(c.id)).map((c) => c.id);
-        const sessionIds = dirty.filter((c) => c.entity === "session" && acceptedSet.has(c.id)).map((c) => c.id);
+        if (accepted.length > 0) {
+          const acceptedSet = new Set(accepted);
 
-        await this.markClean("deck", deckIds);
-        await this.markClean("card", cardIds);
-        await this.markClean("session", sessionIds);
+          const deckIds = outgoing
+            .filter((c) => c.entity === "deck" && acceptedSet.has(c.id))
+            .map((c) => c.id);
+
+          const cardIds = outgoing
+            .filter((c) => c.entity === "card" && acceptedSet.has(c.id))
+            .map((c) => c.id);
+
+          const sessionIds = outgoing
+            .filter((c) => c.entity === "session" && acceptedSet.has(c.id))
+            .map((c) => c.id);
+
+          await this.markClean("deck", deckIds);
+          await this.markClean("card", cardIds);
+          await this.markClean("session", sessionIds);
+        }
       }
+
+      // 2) PULL
+      const cursor = await getSyncCursor();
+      console.log("[sync] cursor before pull:", cursor ?? "none");
+
+      const pullJson = await pullChanges({ deviceId, cursor });
+      console.log("[sync] pulled changes:", pullJson.changes?.length ?? 0);
+      console.log("[sync] new cursor:", pullJson.cursor);
+
+      // 3) APPLY + persist cursor
+      await applyChanges(pullJson.changes ?? []);
+      if (pullJson.cursor) await setSyncCursor(pullJson.cursor);
+
+      console.log("SYNC OK");
+    } catch (err) {
+      console.error("SYNC FAILED", err);
+      throw err;
     }
-
-    // 2) PULL
-    const cursor = await getCursor();
-    const pullUrl = new URL(`${baseUrl}/sync/pull`);
-    pullUrl.searchParams.set("deviceId", deviceId);
-    if (cursor) pullUrl.searchParams.set("cursor", cursor);
-
-    const pullRes = await fetch(pullUrl.toString(), { method: "GET" });
-    if (!pullRes.ok) throw new Error(`pull failed: ${pullRes.status}`);
-
-    const pullJson = (await pullRes.json()) as PullResponse;
-
-    // 3) APPLY + persist cursor
-    await applyRemoteChanges(pullJson.changes ?? []);
-    await setCursor(pullJson.cursor);
   },
 };

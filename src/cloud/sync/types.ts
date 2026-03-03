@@ -1,6 +1,6 @@
 import type { CardRecord } from "../../models/card";
 import type { DeckRecord } from "../../models/deck";
-import type { StudySession } from "../../models/session";
+import type { SessionRecord } from "../../models/session";
 
 export type EntityType = "deck" | "card" | "session";
 
@@ -8,7 +8,7 @@ export type Change = {
   id: string;
   entity: EntityType;
   op: "upsert" | "delete";
-  record: DeckRecord | CardRecord | StudySession;
+  record: DeckRecord | CardRecord | SessionRecord;
   ts: string;
 };
 

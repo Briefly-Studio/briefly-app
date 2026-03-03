@@ -14,9 +14,13 @@
         "CFBundleDocumentTypes": [
           {
             "CFBundleTypeName": "Briefly Deck",
-            "LSItemContentTypes": ["public.json"],
+            "LSItemContentTypes": [
+              "public.json"
+            ],
             "LSHandlerRank": "Owner",
-            "CFBundleTypeExtensions": ["briefly"]
+            "CFBundleTypeExtensions": [
+              "briefly"
+            ]
           }
         ]
       }
@@ -48,7 +52,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
