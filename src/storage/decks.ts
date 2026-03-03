@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { DeckRecord } from "../models/deck";
 import { upgradeDeck } from "../models/deck";
-import { DECKS_KEY, cardsKeyForDeck } from "./keys";
+import { getCardsAll, setCards } from "./cards";
+import { DECKS_KEY } from "./keys";
 import { deleteSessionsForDeck } from "./sessions";
 
 export async function getDecksAll(): Promise<DeckRecord[]> {
@@ -63,12 +64,25 @@ export async function deleteDeckById(id: string): Promise<DeckRecord[]> {
   });
   await setDecks(updated);
 
-  // cascade delete (same key function used everywhere)
-  try {
-    await AsyncStorage.removeItem(cardsKeyForDeck(id));
-  } catch {
-    // ignore
-  }
+  const cards = await getCardsAll(id);
+  // TEMP DEBUG
+  console.log("[deleteDeck] cards before:", cards.length);
+  const updatedCards = cards.map((card) => {
+    if (card.deletedAt) return card;
+    return {
+      ...card,
+      deletedAt: now,
+      updatedAt: now,
+      rev: card.rev + 1,
+      dirty: true,
+    };
+  });
+  // TEMP DEBUG
+  console.log(
+    "[deleteDeck] cards tombstoned:",
+    updatedCards.filter((c) => c.deletedAt).length
+  );
+  await setCards(id, updatedCards);
 
   // 3) cascade delete sessions for this deck
   try {

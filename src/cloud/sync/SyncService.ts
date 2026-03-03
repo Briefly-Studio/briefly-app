@@ -9,6 +9,7 @@ import { getDeviceId } from "../../storage/device";
 import { getSessions, setSessions } from "../../storage/sessions";
 import { getSyncCursor, setSyncCursor } from "../../storage/sync";
 import { pullChanges, pushChanges } from "./http";
+import { emitSyncComplete } from "./syncSignal";
 
 const toTime = (value: string | undefined) => {
   const t = value ? Date.parse(value) : NaN;
@@ -55,6 +56,8 @@ async function applyChanges(changes: Change[]): Promise<void> {
     }
 
     await setDecks(Array.from(byId.values()));
+    // TEMP DEBUG
+    console.log("[sync] decks written:", Array.from(byId.values()).length);
   }
 
   if (cardChanges.length) {
@@ -253,13 +256,37 @@ export const SyncService = {
       const cursor = await getSyncCursor();
       console.log("[sync] cursor before pull:", cursor ?? "none");
 
-      const pullJson = await pullChanges({ deviceId, cursor });
+    const pullJson = await pullChanges({ deviceId, cursor });
+    // TEMP DEBUG
+    const total = pullJson.changes.length;
+    const deckUpserts = pullJson.changes.filter(
+      (c) => c.entity === "deck" && c.op === "upsert"
+    ).length;
+    const deckDeletes = pullJson.changes.filter(
+      (c) => c.entity === "deck" && c.op === "delete"
+    ).length;
+    const cardUpserts = pullJson.changes.filter(
+      (c) => c.entity === "card" && c.op === "upsert"
+    ).length;
+    const cardDeletes = pullJson.changes.filter(
+      (c) => c.entity === "card" && c.op === "delete"
+    ).length;
+    const sessionUpserts = pullJson.changes.filter(
+      (c) => c.entity === "session" && c.op === "upsert"
+    ).length;
+    const sessionDeletes = pullJson.changes.filter(
+      (c) => c.entity === "session" && c.op === "delete"
+    ).length;
+    console.log(
+      `[sync] pulled summary: total=${total} deck(upsert=${deckUpserts} delete=${deckDeletes}) card(upsert=${cardUpserts} delete=${cardDeletes}) session(upsert=${sessionUpserts} delete=${sessionDeletes})`
+    );
       console.log("[sync] pulled changes:", pullJson.changes?.length ?? 0);
       console.log("[sync] new cursor:", pullJson.cursor);
 
       // 3) APPLY + persist cursor
       await applyChanges(pullJson.changes ?? []);
       if (pullJson.cursor) await setSyncCursor(pullJson.cursor);
+      emitSyncComplete();
 
       console.log("SYNC OK");
     } catch (err) {

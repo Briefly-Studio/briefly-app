@@ -26,8 +26,8 @@ export default function Layout() {
     if (decoded.startsWith("file://")) return decoded;
     const fileMatch = decoded.match(/file:\/\/[^ ]+/);
     if (fileMatch) return fileMatch[0];
-    if (decoded.startsWith("briefly://")) {
-      const path = decoded.replace(/^briefly:\/\//, "");
+    if (decoded.startsWith("Interval://")) {
+      const path = decoded.replace(/^Interval:\/\//, "");
       if (path.startsWith("file://")) return path;
       if (path.startsWith("/")) return `file://${path}`;
     }
@@ -46,7 +46,7 @@ export default function Layout() {
       } catch (error) {
         Alert.alert(
           "Import failed",
-          error instanceof Error ? error.message : "This file is not a valid Briefly deck."
+          error instanceof Error ? error.message : "This file is not a valid Interval deck."
         );
       } finally {
         setImporting(false);
