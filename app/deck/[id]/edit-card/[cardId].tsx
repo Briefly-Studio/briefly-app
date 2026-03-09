@@ -1,7 +1,7 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router"; //FIX this routing import
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"; //FIX this routing import
+import { SafeAreaView } from "react-native-safe-area-context"; //FIX this routing import
 
 import type { Card, Difficulty } from "../../../../src/models/card";
 import { deleteCard, getCards, updateCard } from "../../../../src/storage/cards";
