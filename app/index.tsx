@@ -17,7 +17,6 @@ import { onSyncComplete } from "../src/cloud/sync/syncSignal";
 import type { DeckRecord } from "../src/models/deck";
 import { deleteCardsForDeck } from "../src/storage/cards";
 import { deleteDeckById, getDecksAll, setDecks } from "../src/storage/decks";
-import { forceFullResyncPrep, resetLocalData } from "../src/storage/devReset";
 
 const APP_BG = "#2FA4A3"; // teal background like original
 
@@ -25,11 +24,11 @@ export default function DecksHome() {
   const router = useRouter();
   const [decks, setDecksState] = useState<DeckRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [mutating, setMutating] = useState(false);
 
   const loadDecks = useCallback(async () => {
     const allDecks = await getDecksAll();
     const data = allDecks.filter((deck) => !deck.deletedAt);
-    console.log("[home] decks total:", allDecks.length, "active:", data.length);
     setDecksState(data);
     setLoaded(true);
   }, []);
@@ -55,25 +54,33 @@ export default function DecksHome() {
   }, [loadDecks]);
 
   const confirmDelete = (deck: DeckRecord) => {
+    if (mutating) return;
     Alert.alert("Delete deck?", `“${deck.title}” will be removed from this device.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          // Delete deck record
-          await deleteDeckById(deck.id);
+          if (mutating) return;
+          setMutating(true);
+          try {
+            // Delete deck record
+            await deleteDeckById(deck.id);
 
-          // Delete cards stored for that deck (cascade delete)
-          await deleteCardsForDeck(deck.id);
+            // Delete cards stored for that deck (cascade delete)
+            await deleteCardsForDeck(deck.id);
 
-          await loadDecks();
+            await loadDecks();
+          } finally {
+            setMutating(false);
+          }
         },
       },
     ]);
   };
 
   const renameDeck = (deck: DeckRecord) => {
+    if (mutating) return;
     if (Platform.OS === "ios" && typeof Alert.prompt === "function") {
       Alert.prompt(
         "Rename deck",
@@ -81,21 +88,26 @@ export default function DecksHome() {
         async (text) => {
           const title = text.trim();
           if (!title) return;
-          const allDecks = await getDecksAll();
-          const now = new Date().toISOString();
-          const updated = allDecks.map((item) => {
-            if (item.id !== deck.id) return item;
-            return {
-              ...item,
-              title,
-              updatedAt: now,
-              rev: (item.rev ?? 0) + 1,
-              dirty: true,
-            };
-          });
-          await setDecks(updated);
-          await SyncService.syncOnce();
-          await loadDecks();
+          setMutating(true);
+          try {
+            const allDecks = await getDecksAll();
+            const now = new Date().toISOString();
+            const updated = allDecks.map((item) => {
+              if (item.id !== deck.id) return item;
+              return {
+                ...item,
+                title,
+                updatedAt: now,
+                rev: (item.rev ?? 0) + 1,
+                dirty: true,
+              };
+            });
+            await setDecks(updated);
+            await SyncService.syncOnce();
+            await loadDecks();
+          } finally {
+            setMutating(false);
+          }
         },
         "plain-text",
         deck.title
@@ -135,31 +147,6 @@ export default function DecksHome() {
           <Text style={styles.newDeckBtnText}>Import deck</Text>
         </Pressable>
 
-        {__DEV__ && (
-          <View style={styles.devRow}>
-            <Pressable
-              onPress={async () => {
-                await forceFullResyncPrep();
-                await SyncService.syncOnce();
-                await loadDecks();
-              }}
-              style={styles.resetBtn}
-            >
-              <Text style={styles.resetBtnText}>Force Resync</Text>
-            </Pressable>
-            <Pressable
-              onPress={async () => {
-                await resetLocalData();
-                await loadDecks();
-                Alert.alert("Reset done");
-              }}
-              style={styles.resetBtn}
-            >
-              <Text style={styles.resetBtnText}>Reset</Text>
-            </Pressable>
-          </View>
-        )}
-
       </SafeAreaView>
     );
   }
@@ -167,32 +154,22 @@ export default function DecksHome() {
   return (
     <SafeAreaView style={styles.listScreen}>
       <View style={styles.listHeader}>
-        <Text style={styles.listTitle}>Interval</Text>
+        <Pressable
+          onLongPress={() => router.push("/dev-tools")}
+          delayLongPress={600}
+          style={styles.titlePressable}
+        >
+          <Text style={styles.listTitle}>Interval</Text>
+        </Pressable>
 
         <View style={styles.headerButtons}>
           {__DEV__ && (
-            <>
-              <Pressable
-                onPress={async () => {
-                  await forceFullResyncPrep();
-                  await SyncService.syncOnce();
-                  await loadDecks();
-                }}
-                style={styles.resetBtn}
-              >
-                <Text style={styles.resetBtnText}>Force Resync</Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  await resetLocalData();
-                  await loadDecks();
-                  Alert.alert("Reset done");
-                }}
-                style={styles.resetBtn}
-              >
-                <Text style={styles.resetBtnText}>Reset</Text>
-              </Pressable>
-            </>
+            <Pressable
+              onPress={() => router.push("/dev-tools")}
+              style={styles.gearBtn}
+            >
+              <Text style={styles.gearBtnText}>⚙︎</Text>
+            </Pressable>
           )}
           <Pressable onPress={() => router.push("/import")} style={styles.newDeckBtn}>
             <Text style={styles.newDeckBtnText}>Import deck</Text>
@@ -283,18 +260,19 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: "wrap",
     justifyContent: "flex-end",
+    alignSelf: "flex-end",
+    maxWidth: "70%",
   },
-  devRow: { flexDirection: "row", gap: 8 },
-
-  resetBtn: {
+  titlePressable: { alignSelf: "flex-start" },
+  gearBtn: {
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
-  resetBtnText: { fontSize: 14, fontWeight: "700", color: "white" },
+  gearBtnText: { fontSize: 16, fontWeight: "700", color: "white" },
 
   newDeckBtn: {
     paddingVertical: 10,

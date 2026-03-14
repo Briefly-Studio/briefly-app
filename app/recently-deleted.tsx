@@ -19,16 +19,25 @@ import { cardsKeyForDeck } from "../src/storage/keys";
 import { getDecksAll, setDecks } from "../src/storage/decks";
 
 const APP_BG = "#2FA4A3";
+const TRASH_DAYS = 30;
 
 export default function RecentlyDeletedScreen() {
   const router = useRouter();
   const [decks, setDecksState] = useState<DeckRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [showExpired, setShowExpired] = useState(false);
 
   const loadDeleted = useCallback(async () => {
     const allDecks = await getDecksAll();
+    const cutoff = Date.now() - TRASH_DAYS * 24 * 60 * 60 * 1000;
     const deleted = allDecks
-      .filter((deck) => deck.deletedAt)
+      .filter((deck) => {
+        if (!deck.deletedAt) return false;
+        const deletedAt = Date.parse(deck.deletedAt);
+        if (!Number.isFinite(deletedAt)) return false;
+        if (showExpired) return true;
+        return deletedAt >= cutoff;
+      })
       .sort((a, b) => {
         const aTime = a.deletedAt ? Date.parse(a.deletedAt) : 0;
         const bTime = b.deletedAt ? Date.parse(b.deletedAt) : 0;
@@ -36,7 +45,7 @@ export default function RecentlyDeletedScreen() {
       });
     setDecksState(deleted);
     setLoaded(true);
-  }, []);
+  }, [showExpired]);
 
   useFocusEffect(
     useCallback(() => {
@@ -107,13 +116,28 @@ export default function RecentlyDeletedScreen() {
           <Text style={styles.pillText}>← Back</Text>
         </Pressable>
         {__DEV__ && (
-          <Pressable onPress={purgeDeleted} style={styles.newDeckBtn}>
-            <Text style={styles.newDeckBtnText}>Empty Trash</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setShowExpired((prev) => !prev)}
+              style={styles.newDeckBtn}
+            >
+              <Text style={styles.newDeckBtnText}>
+                {showExpired ? "Hide Expired" : "Show Expired"}
+              </Text>
+            </Pressable>
+            <Pressable onPress={purgeDeleted} style={styles.newDeckBtn}>
+              <Text style={styles.newDeckBtnText}>Empty Trash</Text>
+            </Pressable>
+          </View>
         )}
       </View>
 
       <Text style={styles.title}>Recently Deleted</Text>
+      {!showExpired && (
+        <Text style={styles.note}>
+          Expired items are hidden (older than {TRASH_DAYS} days).
+        </Text>
+      )}
 
       {loaded && decks.length === 0 ? (
         <View style={styles.emptyCard}>
@@ -129,8 +153,23 @@ export default function RecentlyDeletedScreen() {
               <View style={styles.deletedCardInfo}>
                 <Text style={styles.deletedCardTitle}>{item.title}</Text>
                 <Text style={styles.deletedCardMeta}>
-                  Deleted{" "}
-                  {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : "—"}
+                  {item.deletedAt
+                    ? (() => {
+                        const deletedAt = Date.parse(item.deletedAt);
+                        const daysSince = Math.max(
+                          0,
+                          Math.floor((Date.now() - deletedAt) / (24 * 60 * 60 * 1000))
+                        );
+                        const dateLabel = new Date(deletedAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        });
+                        return `Deleted ${dateLabel} • ${daysSince} day${
+                          daysSince === 1 ? "" : "s"
+                        } ago`;
+                      })()
+                    : "Deleted —"}
                 </Text>
               </View>
               {__DEV__ && (
@@ -161,6 +200,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  headerActions: { flexDirection: "row", gap: 8 },
   pill: {
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -180,6 +220,7 @@ const styles = StyleSheet.create({
   },
   newDeckBtnText: { fontSize: 16, fontWeight: "700", color: "white" },
   title: { marginTop: 16, fontSize: 30, fontWeight: "800", color: "black" },
+  note: { marginTop: 6, color: "white", opacity: 0.75 },
   list: { paddingTop: 14, paddingBottom: 24, gap: 12 },
   emptyCard: {
     marginTop: 16,
