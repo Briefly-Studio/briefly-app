@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { StudySession } from "../../../src/models/session";
+import { type SessionRecord, upgradeSession } from "../../../src/models/session";
 import { addSession } from "../../../src/storage/sessions";
 
 const APP_BG = "#2FA4A3";
@@ -64,13 +64,19 @@ export default function ReviewResults() {
 
     sessionLogged.current = true;
 
-    const session: StudySession = {
-      id: String(Date.now()),
-      deckId,
-      mode: "review",
-      startedAt,
-      finishedAt,
-      total,
+    const now = new Date().toISOString();
+    const session: SessionRecord = {
+      ...upgradeSession({
+        id: String(Date.now()),
+        deckId,
+        mode: "review",
+        startedAt,
+        finishedAt,
+        total,
+      }),
+      rev: 1,
+      updatedAt: now,
+      dirty: true,
     };
 
     (async () => {

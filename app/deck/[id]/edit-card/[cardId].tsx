@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"; //FIX this routing import
 import { SafeAreaView } from "react-native-safe-area-context"; //FIX this routing import
 
-import type { Card, Difficulty } from "../../../../src/models/card";
+import { type CardRecord, type Difficulty, upgradeCard } from "../../../../src/models/card";
 import { deleteCard, getCards, updateCard } from "../../../../src/storage/cards";
 
 const APP_BG = "#2FA4A3";
@@ -30,7 +30,7 @@ export default function EditCardScreen() {
       : "";
 
   const [loaded, setLoaded] = useState(false);
-  const [card, setCard] = useState<Card | null>(null);
+  const [card, setCard] = useState<CardRecord | null>(null);
 
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
@@ -67,11 +67,17 @@ export default function EditCardScreen() {
   const onSave = async () => {
     if (!card || !deckId || !canSave) return;
 
-    const updated: Card = {
-      ...card,
-      front: front.trim(),
-      back: back.trim(),
-      difficulty,
+    const now = new Date().toISOString();
+    const updated: CardRecord = {
+      ...upgradeCard({
+        ...card,
+        front: front.trim(),
+        back: back.trim(),
+        difficulty,
+      }),
+      rev: card.rev + 1,
+      updatedAt: now,
+      dirty: true,
     };
 
     await updateCard(deckId, updated);

@@ -1,8 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 
-import type { Card } from "../models/card";
-import type { Deck } from "../models/deck";
-import { makeId } from "../models/deck";
+import { type CardRecord, upgradeCard } from "../models/card";
+import { type DeckRecord, makeId, upgradeDeck } from "../models/deck";
 import { setCards } from "../storage/cards";
 import { addDeck, getDecks } from "../storage/decks";
 import { validatePayload } from "./deckTransfer";
@@ -37,22 +36,33 @@ export async function handleIncomingFile(uri: string): Promise<string> {
     existing.some((deck) => deck.title === title) ? `${title} ${Date.now()}` : title;
 
   const newDeckId = makeId();
-  const newDeck: Deck = {
-    id: newDeckId,
-    title: finalTitle,
-    createdAt: new Date().toISOString(),
+  const nowIso = new Date().toISOString();
+  const newDeck: DeckRecord = {
+    ...upgradeDeck({
+      id: newDeckId,
+      title: finalTitle,
+      createdAt: nowIso,
+    }),
+    rev: 1,
+    updatedAt: nowIso,
+    dirty: true,
   };
 
   await addDeck(newDeck);
 
   const timestamp = Date.now();
-  const newCards: Card[] = payload.cards.map((card, index) => ({
-    id: `${timestamp}_${index}`,
-    deckId: newDeckId,
-    front: card.front,
-    back: card.back,
-    createdAt: card.createdAt,
-    difficulty: card.difficulty ?? "medium",
+  const newCards: CardRecord[] = payload.cards.map((card, index) => ({
+    ...upgradeCard({
+      id: `${timestamp}_${index}`,
+      deckId: newDeckId,
+      front: card.front,
+      back: card.back,
+      createdAt: card.createdAt,
+      difficulty: card.difficulty ?? "medium",
+    }),
+    rev: 1,
+    updatedAt: nowIso,
+    dirty: true,
   }));
 
   await setCards(newDeckId, newCards);

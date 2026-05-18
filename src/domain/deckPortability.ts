@@ -1,6 +1,5 @@
-import type { Card, Difficulty } from "../models/card";
-import type { Deck } from "../models/deck";
-import { makeId } from "../models/deck";
+import { type CardRecord, type Difficulty, upgradeCard } from "../models/card";
+import { type DeckRecord, makeId, upgradeDeck } from "../models/deck";
 import { getCards, setCards } from "../storage/cards";
 import { addDeck, getDeckById } from "../storage/decks";
 
@@ -59,12 +58,12 @@ export async function importDeckFromJson(payload: string): Promise<string> {
   const parsed = data as {
     version?: number;
     deck?: { title?: unknown; createdAt?: unknown };
-    cards?: Array<{
+    cards?: {
       front?: unknown;
       back?: unknown;
       difficulty?: unknown;
       createdAt?: unknown;
-    }>;
+    }[];
   };
 
   if (parsed.version !== 1) {
@@ -87,10 +86,16 @@ export async function importDeckFromJson(payload: string): Promise<string> {
   const deckId = makeId();
   const createdAtIso =
     typeof createdAt === "number" ? new Date(createdAt).toISOString() : createdAt;
-  const newDeck: Deck = { id: deckId, title, createdAt: createdAtIso };
+  const nowIso = new Date().toISOString();
+  const newDeck: DeckRecord = {
+    ...upgradeDeck({ id: deckId, title, createdAt: createdAtIso }),
+    rev: 1,
+    updatedAt: nowIso,
+    dirty: true,
+  };
   await addDeck(newDeck);
 
-  const newCards: Card[] = parsed.cards.map((card) => {
+  const newCards: CardRecord[] = parsed.cards.map((card) => {
     if (typeof card.front !== "string" || typeof card.back !== "string") {
       throw new Error("Card data is missing or invalid.");
     }
@@ -104,12 +109,17 @@ export async function importDeckFromJson(payload: string): Promise<string> {
       typeof card.createdAt === "number" ? card.createdAt : Date.now();
 
     return {
-      id: makeId(),
-      deckId,
-      front: card.front,
-      back: card.back,
-      difficulty,
-      createdAt: createdAtValue,
+      ...upgradeCard({
+        id: makeId(),
+        deckId,
+        front: card.front,
+        back: card.back,
+        difficulty,
+        createdAt: createdAtValue,
+      }),
+      rev: 1,
+      updatedAt: nowIso,
+      dirty: true,
     };
   });
 

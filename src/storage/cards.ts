@@ -69,7 +69,7 @@ export async function updateCard(
   const now = new Date().toISOString();
   const updated = cards.map((c) =>
     c.id === updatedCard.id
-      ? { ...upgradeCard(updatedCard), updatedAt: now, dirty: true, deletedAt: undefined }
+      ? { ...upgradeCard(updatedCard), updatedAt: now, dirty: true }
       : c
   );
   await setCards(deckId, updated);

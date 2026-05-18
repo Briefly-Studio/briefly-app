@@ -17,16 +17,12 @@ export type CardRecord = Card & {
   lastSyncedAt?: string;
 };
 
-const isIsoString = (value: unknown) =>
-  typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value);
-
 export function upgradeCard(c: any): CardRecord {
   if (c && typeof c.rev === "number" && typeof c.updatedAt === "string") {
     return { ...c, dirty: c.dirty ?? false };
   }
 
-  const updatedAt =
-    isIsoString(c?.createdAt) ? c.createdAt : new Date().toISOString();
+  const updatedAt = new Date().toISOString();
 
   return {
     id: typeof c?.id === "string" ? c.id : "",

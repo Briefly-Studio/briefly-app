@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { makeId, type Deck } from "../src/models/deck";
+import { makeId, type DeckRecord, upgradeDeck } from "../src/models/deck";
 import { addDeck } from "../src/storage/decks";
 
 export default function CreateDeck() {
@@ -17,10 +17,16 @@ export default function CreateDeck() {
       return;
     }
 
-    const deck: Deck = {
-      id: makeId(),
-      title: trimmed,
-      createdAt: new Date().toISOString(),
+    const now = new Date().toISOString();
+    const deck: DeckRecord = {
+      ...upgradeDeck({
+        id: makeId(),
+        title: trimmed,
+        createdAt: now,
+      }),
+      rev: 1,
+      updatedAt: now,
+      dirty: true,
     };
 
     await addDeck(deck);

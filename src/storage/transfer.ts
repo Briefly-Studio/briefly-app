@@ -1,5 +1,5 @@
-import type { Card } from "../models/card";
-import type { Deck } from "../models/deck";
+import { type CardRecord, upgradeCard } from "../models/card";
+import { type DeckRecord, upgradeDeck } from "../models/deck";
 import { buildExportPayload, validatePayload } from "../domain/deckTransfer";
 import { getCards, setCards } from "./cards";
 import { getDeckById, addDeck } from "./decks";
@@ -33,22 +33,33 @@ export async function importDeckFromJson(raw: string): Promise<{ newDeckId: stri
   const payload = parsed;
   const newDeckId = String(Date.now());
 
-  const deck: Deck = {
-    id: newDeckId,
-    title: payload.deck.title,
-    createdAt: new Date().toISOString(),
+  const nowIso = new Date().toISOString();
+  const deck: DeckRecord = {
+    ...upgradeDeck({
+      id: newDeckId,
+      title: payload.deck.title,
+      createdAt: nowIso,
+    }),
+    rev: 1,
+    updatedAt: nowIso,
+    dirty: true,
   };
 
   await addDeck(deck);
 
   const timestamp = Date.now();
-  const newCards: Card[] = payload.cards.map((card, index) => ({
-    id: `${timestamp}_${index}`,
-    deckId: newDeckId,
-    front: card.front,
-    back: card.back,
-    createdAt: card.createdAt,
-    difficulty: card.difficulty ?? "medium",
+  const newCards: CardRecord[] = payload.cards.map((card, index) => ({
+    ...upgradeCard({
+      id: `${timestamp}_${index}`,
+      deckId: newDeckId,
+      front: card.front,
+      back: card.back,
+      createdAt: card.createdAt,
+      difficulty: card.difficulty ?? "medium",
+    }),
+    rev: 1,
+    updatedAt: nowIso,
+    dirty: true,
   }));
 
   await setCards(newDeckId, newCards);

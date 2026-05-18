@@ -127,7 +127,7 @@ export default function DecksHome() {
         <Text style={styles.emptySubtitle}>You do not have any decks yet.</Text>
 
         <Pressable
-          onPress={() => router.push("/recently-deleted")}
+          onPress={() => router.push({ pathname: "/recently-deleted" as any })}
           style={styles.newDeckBtn}
         >
           <Text style={styles.newDeckBtnText}>Recently Deleted</Text>
@@ -155,7 +155,7 @@ export default function DecksHome() {
     <SafeAreaView style={styles.listScreen}>
       <View style={styles.listHeader}>
         <Pressable
-          onLongPress={() => router.push("/dev-tools")}
+          onLongPress={() => router.push({ pathname: "/dev-tools" as any })}
           delayLongPress={600}
           style={styles.titlePressable}
         >
@@ -165,7 +165,7 @@ export default function DecksHome() {
         <View style={styles.headerButtons}>
           {__DEV__ && (
             <Pressable
-              onPress={() => router.push("/dev-tools")}
+              onPress={() => router.push({ pathname: "/dev-tools" as any })}
               style={styles.gearBtn}
             >
               <Text style={styles.gearBtnText}>⚙︎</Text>
@@ -175,7 +175,7 @@ export default function DecksHome() {
             <Text style={styles.newDeckBtnText}>Import deck</Text>
           </Pressable>
           <Pressable
-            onPress={() => router.push("/recently-deleted")}
+            onPress={() => router.push({ pathname: "/recently-deleted" as any })}
             style={styles.newDeckBtn}
           >
             <Text style={styles.newDeckBtnText}>Recently Deleted</Text>

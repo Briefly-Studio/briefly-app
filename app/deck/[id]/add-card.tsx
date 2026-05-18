@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { Card, Difficulty } from "../../../src/models/card";
+import { type CardRecord, type Difficulty, upgradeCard } from "../../../src/models/card";
 import { addCard } from "../../../src/storage/cards";
 
 const APP_BG = "#2FA4A3";
@@ -31,14 +31,20 @@ export default function AddCardScreen() {
     if (!deckId || !canSave) return;
 
     const now = Date.now();
+    const updatedAt = new Date(now).toISOString();
 
-    const card: Card = {
-      id: String(now),
-      deckId,
-      front: front.trim(),
-      back: back.trim(),
-      createdAt: now,
-      difficulty,
+    const card: CardRecord = {
+      ...upgradeCard({
+        id: String(now),
+        deckId,
+        front: front.trim(),
+        back: back.trim(),
+        createdAt: now,
+        difficulty,
+      }),
+      rev: 1,
+      updatedAt,
+      dirty: true,
     };
 
     await addCard(deckId, card);
