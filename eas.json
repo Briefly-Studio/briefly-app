@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -20,7 +20,8 @@
       "environment": "preview",
       "env": {
         "INTERVAL_ENV": "staging"
-      }
+      },
+      "autoIncrement": true
     },
     "staging-internal": {
       "extends": "staging",
