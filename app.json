@@ -28,7 +28,8 @@
             ]
           }
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSSupportsOpeningDocumentsInPlace": true
       }
     },
     "android": {
